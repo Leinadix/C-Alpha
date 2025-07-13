@@ -1,0 +1,22 @@
+import "io.calpha";
+
+
+fn int main(){
+
+    ->char messageA = "AAAAAAAAAA\n";
+    ->char messageB = "BBBBBBBBBB\n";
+    int size = 11;
+
+    syscall(1, 0, messageA, size * 8, 0, 0, 0);
+    syscall(1, 0, messageB, size * 8, 0, 0, 0);
+
+    ->char temp = "CCCCCCCCCC\n";
+    ->char messageC = temp;
+    syscall(1, 0, messageC, size * 8, 0, 0, 0);
+
+    ->char messageD = "";
+
+    messageD = "DDDDDDDDDD\n";
+    syscall(1, 0, messageD, size * 8, 0, 0, 0);
+
+};

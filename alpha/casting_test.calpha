@@ -1,0 +1,32 @@
+import "lib/std/io.calpha";
+
+fn int main(){
+
+    ->char string = "Hello, World!\n";
+
+    char currentChar = string[0];
+    int i = 0;
+
+    while (currentChar != '\0') {
+
+        string[i] = <char>(<int>(currentChar) + 1);
+
+        i = i + 1;
+        currentChar = string[i];
+    }
+
+    currentChar = string[0];
+    i = 0;
+    while (currentChar != '\0') {
+
+        string[i] = <char>(<int>(currentChar) - 1);
+
+        i = i + 1;
+        currentChar = string[i];
+    }
+
+
+    puts(string);
+
+    ret 0;
+};

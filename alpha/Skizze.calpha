@@ -1,0 +1,99 @@
+// Kommentar
+
+// Beispielcode für Sprache CALPHA, miniamal C-Like into alpha notation, interpretiert durch alpha_tui.
+
+
+// Datentypen
+// In Alpha_Tui sind alle Addressen 64 Bit breit.
+// Daher macht es Sinn, kleinere Datentypen als 64 Bit zusammenzufassen.
+// In Alpha_Tui gibt es Pointer, welche auf 64 Bit breite Adressen zeigen.
+
+// Grundlegender Datentyp:
+int a = 42;
+
+// Pointer auf 64 Bit breite Adressen:
+->int b = ->a;
+
+// Pointer auf Pointer:
+->->int c = ->b;
+
+// Character sind im RAM üblicherweise immer 8 Bit breit, hier ist das layout aber 64 Bit breit.
+// Deswegen werden Charaktere immer wenn möglich zu viert zusammengefasst.
+char _a = "A";
+char _b = "B";
+char _c = "C";
+char _d = "D";
+// wird im RAM als "DCBA" gespeichert, da die Adressen in Alpha_Tui immer 64 Bit breit sind.
+
+// Pointer auf Character sind deswegen ein bisschen anders zu implementieren.
+Bei Dereferenzierungen muss der Compiler diesen Bitshift enstsprechend berücksichtigen.
+->char _a_ptr = ->_a; // zeigt eigentlich auf "DCBA", deswegen muss der kompiler bei chars bitshiften!
+
+char _a_deref = <-_a_ptr; // zeigt auf "A"
+
+// Compiled:
+
+a0 := 68 // "D"
+a0 := p(4) * 2 // Bitshift
+a0 := 67 // "C"
+a0 := p(4) * 2 // Bitshift
+a0 := 66 // "B"
+a0 := p(4) * 2 // Bitshift
+a0 := 65 // "A"
+P(4) := a0 // Akku -> Speicher
+
+P(5) := 4 // Pointer auf "    DCBA"
+
+P(6) := P(5) // Deref
+a0 := P(6)
+a0 := p(p(6)) // dereferenzieren
+// Compiler weiß, dass _a_ptr nur das letzte Byte ist. deswegen Maske mit 0x00000000000000FF
+// Compiler muss erst Masken Funktion implementieren.
+
+// Es gibt nur + - * / und % als arithmetische Operatoren.
+// Keine OR , AND, XOR, NOT, etc., deswegen selber einmal Implementieren!
+
+a0 := 0x00000000000000FF // Maske für 8 Bit
+a1 := P(6) // Pointer auf _a_ptr
+call BITWISE_AND // Maskiertes Ergebnis in a0
+P(6) := a0 // "A" in 6 :)
+
+
+// Erlaubte Operatoren:
+// + addition
+// - subtraktion
+// * multiplikation
+// / division
+// % modulo
+// & bitweise AND
+// | bitweise OR
+// ^ bitweise XOR
+// ~ bitweise NOT
+// <- dereferenzieren
+// -> referenzieren
+// == gleich
+// != ungleich
+// < kleiner
+// > größer
+// <= kleiner gleich
+// >= größer gleich
+// = Zuweisung
+// ; Ende der Anweisung
+
+
+Keywords:
+
+int // Ganzzahl, 64 Bit breit
+char // Zeichen, 8 Bit breit, im RAM aber 64 Bit breit gespeichert
+->TYPE // Pointer, zeigt auf 64 Bit breite Adresse
+
+if
+else
+while
+
+fn TYPE (params) {
+    ...
+}
+
+ret
+

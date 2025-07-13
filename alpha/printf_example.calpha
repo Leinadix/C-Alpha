@@ -1,0 +1,242 @@
+// Printf Implementation in C-Alpha
+
+import "lib/std/bitwise.calpha";
+
+fn int putchar(char c) {
+    ->char buf = ~char[1];
+    buf[0] = c;
+    syscall(1, 0, buf, 8, 0, 0, 0);
+    ret 0;
+};
+
+fn int strlen(->char str) {
+    int len = 0;
+    while(str[len] != '\0') {
+        len = len + 1;
+    }
+    ret len;
+};
+
+fn int puts(->char str) {
+    int len = strlen(str);
+
+    while (len > 0) {
+        len = len - 1;
+        char c = str[len];
+        putchar(c);
+    }
+
+    ret 0;
+};
+
+fn ->char itoa(int num) {
+    // Handle special case for 0
+    if(num == 0) {
+        ->char result = ~char[2];
+        result[0] = '0';
+        result[1] = '\0';
+        ret result;
+    }
+
+    // Handle negative numbers
+    int isNegative = 0;
+    if(num < 0) {
+        isNegative = 1;
+        num = 0 - num;
+    }
+
+    // Count digits
+    int tempNum = num;
+    int digitCount = 0;
+    while(tempNum > 0) {
+        digitCount = digitCount + 1;
+        tempNum = tempNum / 10;
+    }
+
+    // Calculate buffer size
+    int bufSize = digitCount;
+    if(isNegative) {
+        bufSize = bufSize + 1;
+    }
+    bufSize = bufSize + 1;  // For null terminator
+    
+    // Create buffer
+    ->char result = ~char[bufSize];
+
+    // Fill buffer from right to left
+    int pos = digitCount;
+    if(isNegative) {
+        pos = pos + 1;
+    }
+    result[pos] = '\0';
+    pos = pos - 1;
+
+    tempNum = num;
+    while(tempNum > 0) {
+        int digit = tempNum % 10;
+        result[pos] = <char>(digit + <int>('0'));
+        pos = pos - 1;
+        tempNum = tempNum / 10;
+    }
+
+    if(isNegative) {
+        result[0] = '-';
+    }
+
+    ret result;
+};
+
+fn int printf_simple(->char str) {
+    ret puts(str);
+};
+
+fn int printf_int(->char format, int value) {
+    int i = 0;
+    char c = format[i];
+    
+    while(c != '\0') {
+        if(c == '%') {
+            i = i + 1;
+            c = format[i];
+            if(c == 'd') {
+                ->char numStr = itoa(value);
+                puts(numStr);
+            } else {
+                putchar('%');
+                putchar(c);
+            }
+        } else {
+            putchar(c);
+        }
+        i = i + 1;
+        c = format[i];
+    }
+    ret 0;
+};
+
+fn int printf_string(->char format, ->char str) {
+    int i = 0;
+    char c = format[i];
+    
+    while(c != '\0') {
+        if(c == '%') {
+            i = i + 1;
+            c = format[i];
+            if(c == 's') {
+                puts(str);
+            } else {
+                putchar('%');
+                putchar(c);
+            }
+        } else {
+            putchar(c);
+        }
+        i = i + 1;
+        c = format[i];
+    }
+    ret 0;
+};
+
+fn int printf_char(->char format, char ch) {
+    int i = 0;
+    char c = format[i];
+    
+    while(c != '\0') {
+        if(c == '%') {
+            i = i + 1;
+            c = format[i];
+            if(c == 'c') {
+                putchar(ch);
+            } else {
+                putchar('%');
+                putchar(c);
+            }
+        } else {
+            putchar(c);
+        }
+        i = i + 1;
+        c = format[i];
+    }
+    ret 0;
+};
+
+fn int printf_int_int(->char format, int val1, int val2) {
+    int i = 0;
+    char c = format[i];
+    int valuesPrinted = 0;
+    
+    while(c != '\0') {
+        if(c == '%') {
+            i = i + 1;
+            c = format[i];
+            if(c == 'd') {
+                if(valuesPrinted == 0) {
+                    ->char numStr = itoa(val1);
+                    puts(numStr);
+                    valuesPrinted = valuesPrinted + 1;
+                } else {
+                    ->char numStr = itoa(val2);
+                    puts(numStr);
+                }
+            } else {
+                putchar('%');
+                putchar(c);
+            }
+        } else {
+            putchar(c);
+        }
+        i = i + 1;
+        c = format[i];
+    }
+    ret 0;
+};
+
+fn int printf_string_int(->char format, ->char str, int value) {
+    int i = 0;
+    char c = format[i];
+    int stringPrinted = 0;
+    
+    while(c != '\0') {
+        int bool2 = 0;
+        if(c == '%') {
+            bool2 = 1;
+            i = i + 1;
+            c = format[i];
+            int bool = 0;
+            if(c == 's')
+            {
+                if (stringPrinted == 0)
+                {
+                    puts(str);
+                    stringPrinted = 1;
+                    bool = 1;
+                }
+            }
+            if(c == 'd') {
+                ->char numStr = itoa(value);
+                puts(numStr);
+                bool = 1;
+            }if (bool == 0){
+                putchar('%');
+                putchar(c);
+            }
+        } if (bool2 == 0) {
+            putchar(c);
+        }
+        i = i + 1;
+        c = format[i];
+    }
+    ret 0;
+};
+
+fn int main() {
+    ->char hello = "AAAAA %d";
+
+
+    printf_int(hello, 12345);
+
+    char c = 'A';
+
+
+    ret 0;
+};

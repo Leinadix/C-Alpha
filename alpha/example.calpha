@@ -1,0 +1,19 @@
+import "lib/std/io.calpha";
+
+layout Tuple {
+    int left;
+    int right;
+};
+
+fn int main(){
+    Tuple tuple;
+    tuple.left = 65;
+    tuple.right = 66;
+
+    io.puts("Tuple: ");
+    io.putchar(<char>(tuple.left));
+    io.putchar(<char>(tuple.right));
+    io.puts("\n");
+
+    ret 0;
+};

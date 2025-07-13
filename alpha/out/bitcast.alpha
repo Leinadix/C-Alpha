@@ -1,0 +1,548 @@
+
+
+
+get_last_bit:
+pop // Get parameter a
+p(1) := a0 // Store parameter a
+a0 := p(1) // Load a
+push //  variable a
+a0 := 2
+push // Literal value2
+stack% // Binary operation
+return // Return from function
+
+BITWISE_AND:
+pop // Get parameter a
+p(2) := a0 // Store parameter a
+pop // Get parameter b
+p(3) := a0 // Store parameter b
+a0 := 64
+push // Literal value64
+pop // Initialize steps
+p(4) := a0 // Store global::function_BITWISE_XOR::block::steps
+a0 := 0
+push // Literal value0
+pop // Initialize result
+p(5) := a0 // Store global::function_BITWISE_XOR::block::result
+a0 := 1
+push // Literal value1
+pop // Initialize place
+p(6) := a0 // Store global::function_BITWISE_XOR::block::place
+a0 := 0
+push // Literal value0
+pop // Initialize and
+p(7) := a0 // Store global::function_BITWISE_AND::block::and
+a0 := 0
+push // Literal value0
+pop // Initialize bitA
+p(8) := a0 // Store global::function_BITWISE_XOR::block::bitA
+a0 := 0
+push // Literal value0
+pop // Initialize bitB
+p(9) := a0 // Store global::function_BITWISE_XOR::block::bitB
+loop1:
+a0 := p(4) // Load steps
+push //  variable steps
+a0 := 0
+push // Literal value0
+pop // Get right operand
+a1 := a0
+pop // Get left operand
+if a0 > a1 then goto true3 // Jump if greater than
+a0 := 0 // Comparison result: false
+goto cmp_end4
+true3:
+a0 := 1 // Comparison result: true
+cmp_end4:
+push //  comparison result
+pop // Get condition result
+a1 := 0
+if a0 == a1 then goto endloop2 // Jump to end if condition is false
+a0 := p(2) // Load a
+push //  variable a
+a0 := 0
+push // Literal value0
+pop // Get right operand
+a1 := a0
+pop // Get left operand
+if a0 == a1 then goto true7 // Jump if equal
+a0 := 0 // Comparison result: false
+goto cmp_end8
+true7:
+a0 := 1 // Comparison result: true
+cmp_end8:
+push //  comparison result
+pop // Get condition result
+a1 := 0
+if a0 == a1 then goto else5 // Jump to else if condition is false
+a0 := p(3) // Load b
+push //  variable b
+a0 := 0
+push // Literal value0
+pop // Get right operand
+a1 := a0
+pop // Get left operand
+if a0 == a1 then goto true11 // Jump if equal
+a0 := 0 // Comparison result: false
+goto cmp_end12
+true11:
+a0 := 1 // Comparison result: true
+cmp_end12:
+push //  comparison result
+pop // Get condition result
+a1 := 0
+if a0 == a1 then goto else9 // Jump to else if condition is false
+a0 := p(5) // Load result
+push //  variable result
+return // Return from function
+goto endif10 // Jump to end
+else9:
+endif10:
+
+goto endif6 // Jump to end
+else5:
+endif6:
+
+a0 := p(2) // Load a
+push //  variable a
+call get_last_bit // Function call
+pop // Assign to bitA
+p(8) := a0 // Store global::function_BITWISE_XOR::block::bitA
+
+a0 := p(3) // Load b
+push //  variable b
+call get_last_bit // Function call
+pop // Assign to bitB
+p(9) := a0 // Store global::function_BITWISE_XOR::block::bitB
+
+a0 := p(8) // Load bitA
+push //  variable bitA
+a0 := p(9) // Load bitB
+push //  variable bitB
+stack+ // Binary operation
+a0 := 2
+push // Literal value2
+pop // Get right operand
+a1 := a0
+pop // Get left operand
+if a0 == a1 then goto true13 // Jump if equal
+a0 := 0 // Comparison result: false
+goto cmp_end14
+true13:
+a0 := 1 // Comparison result: true
+cmp_end14:
+push //  comparison result
+pop // Assign to and
+p(7) := a0 // Store global::function_BITWISE_AND::block::and
+
+a0 := p(5) // Load result
+push //  variable result
+a0 := p(7) // Load and
+push //  variable and
+a0 := p(6) // Load place
+push //  variable place
+stack* // Binary operation
+stack+ // Binary operation
+pop // Assign to result
+p(5) := a0 // Store global::function_BITWISE_XOR::block::result
+
+a0 := p(2) // Load a
+push //  variable a
+a0 := 2
+push // Literal value2
+stack/ // Binary operation
+pop // Assign to a
+p(2) := a0 // Store global::function_main::block::a
+
+a0 := p(3) // Load b
+push //  variable b
+a0 := 2
+push // Literal value2
+stack/ // Binary operation
+pop // Assign to b
+p(3) := a0 // Store global::function_main::block::b
+
+a0 := p(6) // Load place
+push //  variable place
+a0 := 2
+push // Literal value2
+stack* // Binary operation
+pop // Assign to place
+p(6) := a0 // Store global::function_BITWISE_XOR::block::place
+
+a0 := p(4) // Load steps
+push //  variable steps
+a0 := 1
+push // Literal value1
+stack- // Binary operation
+pop // Assign to steps
+p(4) := a0 // Store global::function_BITWISE_XOR::block::steps
+
+goto loop1 // Jump back to loop start
+endloop2:
+
+a0 := p(5) // Load result
+push //  variable result
+return // Return from function
+
+BITWISE_OR:
+pop // Get parameter a
+p(10) := a0 // Store parameter a
+pop // Get parameter b
+p(11) := a0 // Store parameter b
+a0 := 64
+push // Literal value64
+pop // Initialize steps
+p(12) := a0 // Store global::function_BITWISE_XOR::block::steps
+a0 := 0
+push // Literal value0
+pop // Initialize result
+p(13) := a0 // Store global::function_BITWISE_XOR::block::result
+a0 := 1
+push // Literal value1
+pop // Initialize place
+p(14) := a0 // Store global::function_BITWISE_XOR::block::place
+a0 := 0
+push // Literal value0
+pop // Initialize or
+p(15) := a0 // Store global::function_main::block::or
+a0 := 0
+push // Literal value0
+pop // Initialize bitA
+p(16) := a0 // Store global::function_BITWISE_XOR::block::bitA
+a0 := 0
+push // Literal value0
+pop // Initialize bitB
+p(17) := a0 // Store global::function_BITWISE_XOR::block::bitB
+loop15:
+a0 := p(12) // Load steps
+push //  variable steps
+a0 := 0
+push // Literal value0
+pop // Get right operand
+a1 := a0
+pop // Get left operand
+if a0 > a1 then goto true17 // Jump if greater than
+a0 := 0 // Comparison result: false
+goto cmp_end18
+true17:
+a0 := 1 // Comparison result: true
+cmp_end18:
+push //  comparison result
+pop // Get condition result
+a1 := 0
+if a0 == a1 then goto endloop16 // Jump to end if condition is false
+a0 := p(10) // Load a
+push //  variable a
+a0 := 0
+push // Literal value0
+pop // Get right operand
+a1 := a0
+pop // Get left operand
+if a0 == a1 then goto true21 // Jump if equal
+a0 := 0 // Comparison result: false
+goto cmp_end22
+true21:
+a0 := 1 // Comparison result: true
+cmp_end22:
+push //  comparison result
+pop // Get condition result
+a1 := 0
+if a0 == a1 then goto else19 // Jump to else if condition is false
+a0 := p(11) // Load b
+push //  variable b
+a0 := 0
+push // Literal value0
+pop // Get right operand
+a1 := a0
+pop // Get left operand
+if a0 == a1 then goto true25 // Jump if equal
+a0 := 0 // Comparison result: false
+goto cmp_end26
+true25:
+a0 := 1 // Comparison result: true
+cmp_end26:
+push //  comparison result
+pop // Get condition result
+a1 := 0
+if a0 == a1 then goto else23 // Jump to else if condition is false
+a0 := p(13) // Load result
+push //  variable result
+return // Return from function
+goto endif24 // Jump to end
+else23:
+endif24:
+
+goto endif20 // Jump to end
+else19:
+endif20:
+
+a0 := p(10) // Load a
+push //  variable a
+call get_last_bit // Function call
+pop // Assign to bitA
+p(16) := a0 // Store global::function_BITWISE_XOR::block::bitA
+
+a0 := p(11) // Load b
+push //  variable b
+call get_last_bit // Function call
+pop // Assign to bitB
+p(17) := a0 // Store global::function_BITWISE_XOR::block::bitB
+
+a0 := p(16) // Load bitA
+push //  variable bitA
+a0 := p(17) // Load bitB
+push //  variable bitB
+stack+ // Binary operation
+a0 := 0
+push // Literal value0
+pop // Get right operand
+a1 := a0
+pop // Get left operand
+if a0 > a1 then goto true27 // Jump if greater than
+a0 := 0 // Comparison result: false
+goto cmp_end28
+true27:
+a0 := 1 // Comparison result: true
+cmp_end28:
+push //  comparison result
+pop // Assign to or
+p(15) := a0 // Store global::function_main::block::or
+
+a0 := p(13) // Load result
+push //  variable result
+a0 := p(15) // Load or
+push //  variable or
+a0 := p(14) // Load place
+push //  variable place
+stack* // Binary operation
+stack+ // Binary operation
+pop // Assign to result
+p(13) := a0 // Store global::function_BITWISE_XOR::block::result
+
+a0 := p(10) // Load a
+push //  variable a
+a0 := 2
+push // Literal value2
+stack/ // Binary operation
+pop // Assign to a
+p(10) := a0 // Store global::function_main::block::a
+
+a0 := p(11) // Load b
+push //  variable b
+a0 := 2
+push // Literal value2
+stack/ // Binary operation
+pop // Assign to b
+p(11) := a0 // Store global::function_main::block::b
+
+a0 := p(14) // Load place
+push //  variable place
+a0 := 2
+push // Literal value2
+stack* // Binary operation
+pop // Assign to place
+p(14) := a0 // Store global::function_BITWISE_XOR::block::place
+
+a0 := p(12) // Load steps
+push //  variable steps
+a0 := 1
+push // Literal value1
+stack- // Binary operation
+pop // Assign to steps
+p(12) := a0 // Store global::function_BITWISE_XOR::block::steps
+
+goto loop15 // Jump back to loop start
+endloop16:
+
+a0 := p(13) // Load result
+push //  variable result
+return // Return from function
+
+BITWISE_XOR:
+pop // Get parameter a
+p(18) := a0 // Store parameter a
+pop // Get parameter b
+p(19) := a0 // Store parameter b
+a0 := 64
+push // Literal value64
+pop // Initialize steps
+p(20) := a0 // Store global::function_BITWISE_XOR::block::steps
+a0 := 0
+push // Literal value0
+pop // Initialize result
+p(21) := a0 // Store global::function_BITWISE_XOR::block::result
+a0 := 1
+push // Literal value1
+pop // Initialize place
+p(22) := a0 // Store global::function_BITWISE_XOR::block::place
+a0 := 0
+push // Literal value0
+pop // Initialize xor
+p(23) := a0 // Store global::function_BITWISE_XOR::block::xor
+a0 := 0
+push // Literal value0
+pop // Initialize bitA
+p(24) := a0 // Store global::function_BITWISE_XOR::block::bitA
+a0 := 0
+push // Literal value0
+pop // Initialize bitB
+p(25) := a0 // Store global::function_BITWISE_XOR::block::bitB
+loop29:
+a0 := p(20) // Load steps
+push //  variable steps
+a0 := 0
+push // Literal value0
+pop // Get right operand
+a1 := a0
+pop // Get left operand
+if a0 > a1 then goto true31 // Jump if greater than
+a0 := 0 // Comparison result: false
+goto cmp_end32
+true31:
+a0 := 1 // Comparison result: true
+cmp_end32:
+push //  comparison result
+pop // Get condition result
+a1 := 0
+if a0 == a1 then goto endloop30 // Jump to end if condition is false
+a0 := p(18) // Load a
+push //  variable a
+a0 := 0
+push // Literal value0
+pop // Get right operand
+a1 := a0
+pop // Get left operand
+if a0 == a1 then goto true35 // Jump if equal
+a0 := 0 // Comparison result: false
+goto cmp_end36
+true35:
+a0 := 1 // Comparison result: true
+cmp_end36:
+push //  comparison result
+pop // Get condition result
+a1 := 0
+if a0 == a1 then goto else33 // Jump to else if condition is false
+a0 := p(19) // Load b
+push //  variable b
+a0 := 0
+push // Literal value0
+pop // Get right operand
+a1 := a0
+pop // Get left operand
+if a0 == a1 then goto true39 // Jump if equal
+a0 := 0 // Comparison result: false
+goto cmp_end40
+true39:
+a0 := 1 // Comparison result: true
+cmp_end40:
+push //  comparison result
+pop // Get condition result
+a1 := 0
+if a0 == a1 then goto else37 // Jump to else if condition is false
+a0 := p(21) // Load result
+push //  variable result
+return // Return from function
+goto endif38 // Jump to end
+else37:
+endif38:
+
+goto endif34 // Jump to end
+else33:
+endif34:
+
+a0 := p(18) // Load a
+push //  variable a
+call get_last_bit // Function call
+pop // Assign to bitA
+p(24) := a0 // Store global::function_BITWISE_XOR::block::bitA
+
+a0 := p(19) // Load b
+push //  variable b
+call get_last_bit // Function call
+pop // Assign to bitB
+p(25) := a0 // Store global::function_BITWISE_XOR::block::bitB
+
+a0 := p(24) // Load bitA
+push //  variable bitA
+a0 := p(25) // Load bitB
+push //  variable bitB
+stack+ // Binary operation
+a0 := 2
+push // Literal value2
+stack% // Binary operation
+pop // Assign to xor
+p(23) := a0 // Store global::function_BITWISE_XOR::block::xor
+
+a0 := p(21) // Load result
+push //  variable result
+a0 := p(23) // Load xor
+push //  variable xor
+a0 := p(22) // Load place
+push //  variable place
+stack* // Binary operation
+stack+ // Binary operation
+pop // Assign to result
+p(21) := a0 // Store global::function_BITWISE_XOR::block::result
+
+a0 := p(18) // Load a
+push //  variable a
+a0 := 2
+push // Literal value2
+stack/ // Binary operation
+pop // Assign to a
+p(18) := a0 // Store global::function_main::block::a
+
+a0 := p(19) // Load b
+push //  variable b
+a0 := 2
+push // Literal value2
+stack/ // Binary operation
+pop // Assign to b
+p(19) := a0 // Store global::function_main::block::b
+
+a0 := p(22) // Load place
+push //  variable place
+a0 := 2
+push // Literal value2
+stack* // Binary operation
+pop // Assign to place
+p(22) := a0 // Store global::function_BITWISE_XOR::block::place
+
+a0 := p(20) // Load steps
+push //  variable steps
+a0 := 1
+push // Literal value1
+stack- // Binary operation
+pop // Assign to steps
+p(20) := a0 // Store global::function_BITWISE_XOR::block::steps
+
+goto loop29 // Jump back to loop start
+endloop30:
+
+a0 := p(21) // Load result
+push //  variable result
+return // Return from function
+
+main:
+a0 := 10
+push // Literal value10
+pop // Initialize a
+p(26) := a0 // Store global::function_main::block::a
+a0 := 12
+push // Literal value12
+pop // Initialize b
+p(27) := a0 // Store global::function_main::block::b
+a0 := p(26) // Load a
+push //  variable a
+a0 := p(27) // Load b
+push //  variable b
+call BITWISE_AND // Perform bitwise AND
+push //  bitwise operation result
+pop // Initialize or
+p(28) := a0 // Store global::function_main::block::or
+a0 := 0
+push // Literal value0
+return // Return from function
+
+goto END

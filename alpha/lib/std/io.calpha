@@ -1,0 +1,32 @@
+import "bitwise.calpha";
+
+namespace io {
+    fn ->char readInput() {
+        ->char buf = ~char[256];
+        syscall(0, 0, buf, 256 * 8, 0, 0, 0);
+        ret buf;
+    };
+
+    fn int putchar(char c) {
+        ->char buf = ~char[1];
+        buf[0] = c;
+        syscall(1, 0, buf, 8, 0, 0, 0);
+        ret 0;
+    };
+
+    fn int puts(->char str) {
+        int len = 0;
+        while(str[len] != '\0') {
+            len = len + 1;
+        }
+        int i = 0;
+        while (i < len) {
+            char c = str[i];
+            putchar(c);
+            i = i + 1;
+        }
+
+        ret 0;
+    };
+
+};

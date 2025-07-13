@@ -1,0 +1,105 @@
+namespace bit {
+
+    fn int get_last_bit(int a){
+        ret a % 2;
+    };
+
+    fn int BITWISE_AND(int a, int b) {
+        int steps = 64;
+        int result = 0;
+        int place = 1;
+
+        int and = 0;
+
+        int bitA = 0;
+        int bitB = 0;
+        while (steps > 0) {
+            if (a == 0) {
+                if (b == 0) {
+                    ret result;
+                }
+            }
+
+            bitA = get_last_bit(a);
+            bitB = get_last_bit(b);
+
+            and = (bitA + bitB) == 2;
+            result = result + and * place;
+
+            a = a / 2;
+            b = b / 2;
+
+            place = place * 2;
+
+            steps = steps - 1;
+        }
+
+        ret result;
+    };
+
+    fn int BITWISE_OR(int a, int b) {
+        int steps = 64;
+        int result = 0;
+        int place = 1;
+
+        int or = 0;
+
+        int bitA = 0;
+        int bitB = 0;
+        while (steps > 0) {
+            if (a == 0) {
+                if (b == 0) {
+                    ret result;
+                }
+            }
+
+            bitA = get_last_bit(a);
+            bitB = get_last_bit(b);
+
+            or = (bitA + bitB) > 0;
+            result = result + or * place;
+
+            a = a / 2;
+            b = b / 2;
+
+            place = place * 2;
+
+            steps = steps - 1;
+        }
+
+        ret result;
+    };
+
+    fn int BITWISE_XOR(int a, int b) {
+        int steps = 64;
+        int result = 0;
+        int place = 1;
+
+        int xor = 0;
+        
+        int bitA = 0;
+        int bitB = 0;
+        while (steps > 0) {
+            if (a == 0) {
+                if (b == 0) {
+                    ret result;
+                }
+            }
+
+            bitA = get_last_bit(a);
+            bitB = get_last_bit(b);
+
+            xor = (bitA + bitB) % 2;
+            result = result + xor * place;
+
+            a = a / 2;
+            b = b / 2;
+
+            place = place * 2;
+
+            steps = steps - 1;
+        }
+
+        ret result;
+    };
+};

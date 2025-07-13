@@ -1,0 +1,122 @@
+import "io.calpha";
+
+namespace LinkedList {
+    layout Node {
+        ->int data;
+        ->int next;
+    };
+
+    layout List {
+        ->Node head;
+        ->Node tail;
+        int size;
+        int capacity;
+        int last_size;
+        ->int current_ptr;
+    };
+
+    fn ->int create_list(int capacity) {
+        ->List list = ~LinkedList.List[0];
+        list.head = < ->Node> (0);
+        list.tail = < ->Node> (0);
+        list.size = 0;
+        list.capacity = capacity;
+        list.current_ptr = ->0;
+        list.last_size = 0;
+        ret < ->int> (list);
+    };
+
+    fn ->Node create_node(->int data) {
+        ->Node node = ~Node[0];
+        node.data = data;
+        node.next = ->0;
+        ret node;
+    };
+
+    fn int add_node(->int list_ptr, ->Node node) {
+        ->LinkedList.List list = < ->LinkedList.List>(list_ptr);
+
+
+        if (list.size >= list.capacity) {
+            ret -1;
+        }
+
+        if (list.size == 0) {
+            list.head = node;
+            list.tail = node;
+        } else {
+
+            list.tail.next = < ->int>(node);
+            list.tail = node;
+        }
+
+        list.size = list.size + 1;
+        ret 0;
+    };
+
+    fn int remove_node(->List list, ->Node node) {
+        if (list.size == 0) {
+            ret 0;
+        }
+
+        if (list.head == node) {
+            list.head = < ->Node>(list.head.next);
+        }
+
+        if (list.tail == node) {
+            list.tail = list.head;
+        }
+
+        list.size = list.size - 1;
+    };
+
+};
+
+
+fn ->LinkedList.Node createCharNode(->char data) {
+    ->LinkedList.Node node = LinkedList.create_node(data);
+    ret node;
+};
+
+
+fn int main(){
+    ->int list_ptr = LinkedList.create_list(0);
+    LinkedList.add_node(list_ptr, createCharNode("a"));
+    LinkedList.add_node(list_ptr, createCharNode("b"));
+    LinkedList.add_node(list_ptr, createCharNode("c"));
+    LinkedList.add_node(list_ptr, createCharNode("d"));
+    LinkedList.add_node(list_ptr, createCharNode("e"));
+    LinkedList.add_node(list_ptr, createCharNode("f"));
+    LinkedList.add_node(list_ptr, createCharNode("g"));
+    LinkedList.add_node(list_ptr, createCharNode("h"));
+    LinkedList.add_node(list_ptr, createCharNode("i"));
+    LinkedList.add_node(list_ptr, createCharNode("j"));
+    LinkedList.add_node(list_ptr, createCharNode("k"));
+    LinkedList.add_node(list_ptr, createCharNode("l"));
+    LinkedList.add_node(list_ptr, createCharNode("m"));
+    LinkedList.add_node(list_ptr, createCharNode("n"));
+    LinkedList.add_node(list_ptr, createCharNode("o"));
+    LinkedList.add_node(list_ptr, createCharNode("p"));
+    LinkedList.add_node(list_ptr, createCharNode("q"));
+    LinkedList.add_node(list_ptr, createCharNode("r"));
+    LinkedList.add_node(list_ptr, createCharNode("s"));
+    LinkedList.add_node(list_ptr, createCharNode("t"));
+    LinkedList.add_node(list_ptr, createCharNode("u"));
+    LinkedList.add_node(list_ptr, createCharNode("v"));
+    LinkedList.add_node(list_ptr, createCharNode("w"));
+    LinkedList.add_node(list_ptr, createCharNode("x"));
+    LinkedList.add_node(list_ptr, createCharNode("y"));
+    LinkedList.add_node(list_ptr, createCharNode("z"));
+    LinkedList.add_node(list_ptr, createCharNode("e"));
+
+    ->LinkedList.Node current = list.head;
+
+    while (current != ~LinkedList.Node[0]) {
+        io.puts(< ->char>(current.data));
+        current = < ->Node>(current.next);
+    }
+
+    ret 0;
+};
+
+
