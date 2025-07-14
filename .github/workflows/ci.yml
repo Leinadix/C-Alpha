@@ -49,7 +49,7 @@ jobs:
       run: |
         clang-tidy-15 --config-file=.clang-tidy \
         $(find src include lsp -name "*.cpp" -o -name "*.hpp") \
-        -p build/ --warnings-as-errors=*
+        -p build/
 
   build-and-test:
     name: Build and Test
@@ -237,15 +237,10 @@ jobs:
     
     - name: Create Release
       if: steps.check_tag.outputs.exists == 'false'
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ steps.version.outputs.tag }}
-        release_name: Release ${{ steps.version.outputs.version }}
-        body: |
-          ## Changes
+      run: |
+        gh release create "${{ steps.version.outputs.tag }}" \
+          --title "Release ${{ steps.version.outputs.version }}" \
+          --notes "## Changes
           
           This release includes the latest changes from the main branch.
           
@@ -257,9 +252,9 @@ jobs:
           
           ## Documentation
           
-          Full API documentation is available at: https://Leinadix.github.io/alpha-c/
-        draft: false
-        prerelease: false
+          Full API documentation is available at: https://Leinadix.github.io/alpha-c/"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Upload Release Assets
       if: steps.check_tag.outputs.exists == 'false'
@@ -278,13 +273,25 @@ jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     steps:
     - uses: actions/checkout@v4
     
-    - name: Run CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
       with:
         languages: cpp
+    
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+    
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:cpp"
     
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master

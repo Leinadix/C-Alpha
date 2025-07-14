@@ -1,7 +1,7 @@
 ---
 BasedOnStyle: LLVM
-IndentWidth: 2
-TabWidth: 2
+IndentWidth: 4
+TabWidth: 4
 UseTab: Never
 ColumnLimit: 80
 BreakBeforeBraces: Attach
@@ -31,14 +31,3 @@ SpacesInSquareBrackets: false
 Standard: c++20
 SortIncludes: true
 SortUsingDeclarations: true
-IncludeBlocks: Preserve
-IncludeCategories:
-  - Regex:           '^<ext/.*\.h>'
-    Priority:        2
-  - Regex:           '^<.*\.h>'
-    Priority:        1
-  - Regex:           '^<.*'
-    Priority:        2
-  - Regex:           '.*'
-    Priority:        3
-...
