@@ -29,7 +29,7 @@ namespace std_Memory {
     fn rawPtr InitHeap() {
         // Get the highest static memory allocation address from address 0
         ->int static_end = ->0;
-        int static_boundary = *static_end;
+        int static_boundary = <-static_end;
         
         // Allocate heap structure after static memory
         ->Heap heap = ~Heap[1];
