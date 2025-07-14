@@ -55,7 +55,7 @@ jobs:
           exit 0
         fi
         
-        clang-tidy-15 --config-file=.clang-tidy -p build "${files[@]}"
+        clang-tidy-15 --config-file=.clang-tidy -p build "${files[@]}" -DCMAKE_CXX_COMPILER=$CXX
 
   build-and-test:
     name: Build and Test
