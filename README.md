@@ -16,9 +16,9 @@ A modern compiler implementation for the C-Alpha programming language, featuring
 
 ## Prerequisites
 
-- **C++ Compiler**: GCC 10+ or Clang 12+ with C++20 support
+- **C++ Compiler**: GCC 11+ or Clang 18+ with C++20 support
 - **CMake**: Version 3.20 or higher
-- **LLVM**: Version 15+ (for advanced features)
+- **LLVM**: Version 18+ (for advanced features)
 - **Git**: For version control and submodules
 
 ### Platform Support

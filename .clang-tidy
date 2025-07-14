@@ -1,13 +1,13 @@
 ---
 # Only critical diagnostics, static analysis, bugprone and simple readability checks
 Checks: >
-  clang-diagnostic-*,
+  -*,
+  -clang-diagnostic-*,
   clang-analyzer-*,
   bugprone-*,
-  readability-*,
-  # Turn off the most pedantic readability checks
-  -readability-magic-numbers,
-  -readability-named-parameter
+  readability-*
+
+SystemHeaders: false
 
 # Don’t promote any warnings to errors
 WarningsAsErrors: ''
