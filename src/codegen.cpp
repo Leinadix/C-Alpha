@@ -343,6 +343,22 @@ std::string CodeGenerator::getVariableLayoutType(const std::string &varFQDN) {
                 trackVariableLayout(varFQDN, layoutName);
                 return layoutName;
             }
+        } else if (sym->type->kind == SemanticTypeKind::POINTER) {
+            // Handle pointer types - check if they point to layout types
+            const auto *ptrType =
+                dynamic_cast<const PointerSemanticType *>(sym->type.get());
+            if (ptrType && ptrType->pointsTo && ptrType->pointsTo->kind == SemanticTypeKind::LAYOUT) {
+                const auto *lst =
+                    dynamic_cast<const LayoutSemanticType *>(ptrType->pointsTo.get());
+                std::cout << "[CRIT 3] Pointer to layout: " << lst->toString() << '\n';
+                std::string layoutName = lst->layoutName;
+                if (!layoutName.empty()) {
+                    emitComment("DEBUG: Found pointer to layout type " + layoutName +
+                                " for variable " + varFQDN);
+                    trackVariableLayout(varFQDN, layoutName);
+                    return layoutName;
+                }
+            }
         }
     }
 

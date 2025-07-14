@@ -62,3 +62,11 @@ add_executable(test_overall tests/debug_test.cpp)
 target_link_libraries(test_overall PRIVATE $<TARGET_OBJECTS:core_objects>)
 add_test(NAME test_overall COMMAND test_overall)
 
+add_executable(test_layout_types tests/test_layout_types.cpp)
+target_link_libraries(test_layout_types PRIVATE $<TARGET_OBJECTS:core_objects>)
+add_test(NAME test_layout_types COMMAND test_layout_types)
+
+add_executable(test_issue_8 tests/test_issue_8.cpp)
+target_link_libraries(test_issue_8 PRIVATE $<TARGET_OBJECTS:core_objects>)
+add_test(NAME test_issue_8 COMMAND test_issue_8)
+
