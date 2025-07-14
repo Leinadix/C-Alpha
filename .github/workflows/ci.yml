@@ -278,12 +278,13 @@ jobs:
     - name: Upload Release Assets
       if: steps.check_tag.outputs.exists == 'false'
       run: |
-        for artifact in artifacts/alpha-c-*; do
-          if [ -d "$artifact" ]; then
-            cd "$artifact"
-            zip -r "../$(basename "$artifact").zip" .
-            cd ..
-            gh release upload "${{ steps.version.outputs.tag }}" "$(basename "$artifact").zip"
+        for dir in artifacts/alpha-c-*; do
+          if [ -d "$dir" ]; then
+            fn=$(basename "$dir")
+            # zip the whole directory into a file fn.zip in the repo root
+            zip -r "${fn}.zip" "$dir"
+            # upload it from the repo root
+            gh release upload "${{ steps.version.outputs.tag }}" "${fn}.zip"
           fi
         done
       env:
