@@ -47,9 +47,16 @@ jobs:
     
     - name: Run clang-tidy
       run: |
-        clang-tidy-15 --config-file=.clang-tidy \
-        $(find src include lsp -name "*.cpp" -o -name "*.hpp") \
-        -p build/
+        shopt -s globstar nullglob
+        
+        files=( src/**/*.cpp include/**/*.cpp lsp/**/*.cpp )
+        
+        if [ ${#files[@]} -eq 0 ]; then
+          echo "No source files found for static analysis."
+          exit 0
+        fi
+        
+        clang-tidy-15 --config-file=.clang-tidy -p build "${files[@]}"
 
   build-and-test:
     name: Build and Test
