@@ -8,18 +8,23 @@ Checks: >
   portability-*,
   readability-*,
   bugprone-*,
+  portability-avoid-pragma-once,    # <-- enforce include guards
   -clang-analyzer-alpha*,
   -modernize-use-trailing-return-type,
   -readability-braces-around-statements,
   -readability-magic-numbers,
   -readability-named-parameter,
-  -llvm-header-guard,
+  -llvm-header-guard,               # still disabled
   -llvm-include-order
 
 WarningsAsErrors: ''
 
 HeaderFilterRegex: '(src/|include/|lsp/|tests/).*\.(h|hpp)$'
 
-AnalyzeTemporaryDtors: false
-
 FormatStyle: file
+
+CheckOptions:
+  # Treat pragma-once avoidance as an error, not just a warning
+  - key: portability-avoid-pragma-once.WarningOnly
+    value: 'false'
+---

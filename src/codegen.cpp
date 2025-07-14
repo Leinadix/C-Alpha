@@ -15,59 +15,65 @@ RegisterAllocator::RegisterAllocator() {
     }
 }
 
-int RegisterAllocator::allocateRegister(const std::string& variableName) {
+int RegisterAllocator::allocateRegister(const std::string &variableName) {
     if (availableRegisters.empty()) {
         throw CodeGeneratorError("No available registers for allocation");
     }
-    
+
     int registerIndex = *availableRegisters.begin();
     availableRegisters.erase(registerIndex);
-    
+
     if (!variableName.empty()) {
         variableToRegister[variableName] = registerIndex;
     }
-    
+
     return registerIndex;
 }
 
 void RegisterAllocator::deallocateRegister(int registerIndex) {
     if (registerIndex < 0 || registerIndex >= 8) {
-        throw CodeGeneratorError("Invalid register index: " + std::to_string(registerIndex));
+        throw CodeGeneratorError("Invalid register index: " +
+                                 std::to_string(registerIndex));
     }
-    
+
     availableRegisters.insert(registerIndex);
-    
+
     // Remove from variable mapping
-    for (auto it = variableToRegister.begin(); it != variableToRegister.end(); ++it) {
-        if (it->second == registerIndex) {
-            variableToRegister.erase(it);
+    for (auto iter = variableToRegister.begin(); iter != variableToRegister.end();
+         ++iter) {
+        if (iter->second == registerIndex) {
+            variableToRegister.erase(iter);
             break;
         }
     }
 }
 
-void RegisterAllocator::deallocateVariable(const std::string& variableName) {
-    auto it = variableToRegister.find(variableName);
-    if (it != variableToRegister.end()) {
-        deallocateRegister(it->second);
+void RegisterAllocator::deallocateVariable(const std::string &variableName) {
+    auto iter = variableToRegister.find(variableName);
+    if (iter != variableToRegister.end()) {
+        deallocateRegister(iter->second);
     }
 }
 
-bool RegisterAllocator::isVariableInRegister(const std::string& variableName) const {
+bool RegisterAllocator::isVariableInRegister(
+    const std::string &variableName) const {
     return variableToRegister.find(variableName) != variableToRegister.end();
 }
 
-int RegisterAllocator::getVariableRegister(const std::string& variableName) const {
-    auto it = variableToRegister.find(variableName);
-    if (it == variableToRegister.end()) {
-        throw CodeGeneratorError("Variable '" + variableName + "' not in register");
+int RegisterAllocator::getVariableRegister(
+    const std::string &variableName) const {
+    auto iter = variableToRegister.find(variableName);
+    if (iter == variableToRegister.end()) {
+        throw CodeGeneratorError("Variable '" + variableName +
+                                 "' not in register");
     }
-    return it->second;
+    return iter->second;
 }
 
-std::string RegisterAllocator::getRegisterName(int registerIndex) const {
+std::string RegisterAllocator::getRegisterName(int registerIndex) {
     if (registerIndex < 0 || registerIndex >= 8) {
-        throw CodeGeneratorError("Invalid register index: " + std::to_string(registerIndex));
+        throw CodeGeneratorError("Invalid register index: " +
+                                 std::to_string(registerIndex));
     }
     return "a" + std::to_string(registerIndex);
 }
@@ -88,9 +94,9 @@ void RegisterAllocator::clearAll() {
 // LabelGenerator Implementation
 // ============================================================================
 
-LabelGenerator::LabelGenerator() : nextLabelIndex(1) {}
+LabelGenerator::LabelGenerator() = default;
 
-std::string LabelGenerator::generateLabel(const std::string& prefix) {
+std::string LabelGenerator::generateLabel(const std::string &prefix) {
     return prefix + std::to_string(nextLabelIndex++);
 }
 
@@ -102,32 +108,29 @@ void LabelGenerator::reset() {
 // CodeGenerator Implementation
 // ============================================================================
 
-std::string CodeGenerator::generate(const Program* program) {
+std::string CodeGenerator::generate(const Program *program) {
     output.clear();
     output.str("");
-    
+
     // Check for main function
     bool hasMainFunction = false;
-    std::string mainLabel;
-    for (const auto& statement : program->statements) {
+    for (const auto &statement : program->statements) {
         if (statement->nodeType == NodeType::FUNCTION_DECLARATION) {
-            const FunctionDeclaration* funcDecl = dynamic_cast<const FunctionDeclaration*>(statement.get());
+            const auto *funcDecl =
+                dynamic_cast<const FunctionDeclaration *>(statement.get());
             if (funcDecl->name == "main") {
-                // Check if it returns int
+                // Check if iter returns int
                 if (funcDecl->returnType->nodeType == NodeType::BASIC_TYPE) {
-                    const BasicType* returnType = dynamic_cast<const BasicType*>(funcDecl->returnType.get());
+                    const auto *returnType = dynamic_cast<const BasicType *>(
+                        funcDecl->returnType.get());
                     if (returnType->baseType == TokenType::INT) {
                         hasMainFunction = true;
-                        // Get the actual label for main (might be namespace qualified)
-                        if (semanticAnalyzer) {
-                            Symbol* symbol = semanticAnalyzer->getSymbolTable().findSymbol("main");
-                            if (symbol) {
-                                mainLabel = symbol->fqdn;
-                            } else {
-                                mainLabel = "main";
-                            }
-                        } else {
-                            mainLabel = "main";
+                        // Get the actual label for main (might be namespace
+                        // qualified)
+                        if (semanticAnalyzer != nullptr) {
+                            Symbol *symbol =
+                                semanticAnalyzer->getSymbolTable().findSymbol(
+                                    "main");
                         }
                         break;
                     }
@@ -135,40 +138,39 @@ std::string CodeGenerator::generate(const Program* program) {
             }
         }
     }
-    
+
     if (!hasMainFunction) {
         throw CodeGeneratorError("Entry Point fn int main() not found!");
     }
-    
+
     emitComment("Generated by C-Alpha Compiler");
     emitComment("Target: Alpha_TUI Assembly");
     emit("");
-    
+
     // Generate code for all statements
-    for (const auto& statement : program->statements) {
+    for (const auto &statement : program->statements) {
         generateStatement(statement.get());
     }
-    
+
     // Get the highest memory address used after all code generation
     int highestAddress = memoryManager.getNextMemoryAddress() - 1;
-    
+
     // Convert the output to a string
     std::string generatedCode = output.str();
-
-
-
-
 
     // find line that ONLY contains "main:"
     size_t mainLabelPos = generatedCode.find("\nglobal::main:\n");
     if (mainLabelPos == std::string::npos) {
-        throw CodeGeneratorError("Main function label not found in generated code");
+        throw CodeGeneratorError(
+            "Main function label not found in generated code");
     }
-
 
     size_t maxAddress = memoryManager.getNextMemoryAddress() - 1;
 
-    generatedCode.insert(mainLabelPos + 15, "\n p(0) := " + std::to_string(maxAddress) + " // Highest memory address used: " + std::to_string(maxAddress) + "\n");
+    generatedCode.insert(mainLabelPos + 15,
+                         "\n p(0) := " + std::to_string(maxAddress) +
+                             " // Highest memory address used: " +
+                             std::to_string(maxAddress) + "\n");
 
     generatedCode.replace(mainLabelPos, 15, "main:          ");
 
@@ -212,23 +214,23 @@ void CodeGenerator::reset() {
 }
 
 // Helper methods
-void CodeGenerator::emit(const std::string& instruction) {
-    output << instruction << std::endl;
+void CodeGenerator::emit(const std::string &instruction) {
+    output << instruction << '\n';
 }
 
-void CodeGenerator::emitComment(const std::string& comment) {
-    output << "// " << comment << std::endl;
+void CodeGenerator::emitComment(const std::string &comment) {
+    output << "// " << comment << '\n';
 }
 
-void CodeGenerator::emitLabel(const std::string& label) {
-    output << label << ":" << std::endl;
+void CodeGenerator::emitLabel(const std::string &label) {
+    output << label << ":" << '\n';
 }
 
 // ============================================================================
 // Stack Operations
 // ============================================================================
 
-void CodeGenerator::pushToStack(const std::string& comment) {
+void CodeGenerator::pushToStack(const std::string &comment) {
     emit("push" + (comment.empty() ? "" : " // " + comment));
     stackDepth++;
     emitComment("DEBUG: Stack depth after push: " + std::to_string(stackDepth));
@@ -237,11 +239,13 @@ void CodeGenerator::pushToStack(const std::string& comment) {
     }
 }
 
-void CodeGenerator::popFromStack(const std::string& comment) {
+void CodeGenerator::popFromStack(const std::string &comment) {
     if (stackDepth <= 0) {
-        emitComment("WARNING: Stack underflow detected - stackDepth: " + std::to_string(stackDepth));
+        emitComment("WARNING: Stack underflow detected - stackDepth: " +
+                    std::to_string(stackDepth));
         // Temporarily disable the exception to see if the program works
-        // throw CodeGeneratorError("Stack underflow: trying to pop from empty stack");
+        // throw CodeGeneratorError("Stack underflow: trying to pop from empty
+        // stack");
     }
     emit("pop" + (comment.empty() ? "" : " // " + comment));
     stackDepth--;
@@ -251,15 +255,18 @@ void CodeGenerator::popFromStack(const std::string& comment) {
     }
 }
 
-void CodeGenerator::emitStackOperation(const std::string& operation, const std::string& comment) {
-    // Stack operations like stack+, stack-, stack*, stack/, stack% consume 2 values and push 1 result
-    // Net effect is -1 on stack depth
+void CodeGenerator::emitStackOperation(const std::string &operation,
+                                       const std::string &comment) {
+    // Stack operations like stack+, stack-, stack*, stack/, stack% consume 2
+    // values and push 1 result Net effect is -1 on stack depth
     emit(operation + (comment.empty() ? "" : " // " + comment));
     stackDepth--;
-    emitComment("DEBUG: Stack depth after " + operation + ": " + std::to_string(stackDepth));
+    emitComment("DEBUG: Stack depth after " + operation + ": " +
+                std::to_string(stackDepth));
 }
 
-void CodeGenerator::pushRegisterToStack(int registerIndex, const std::string& comment) {
+void CodeGenerator::pushRegisterToStack(int registerIndex,
+                                        const std::string &comment) {
     std::string regName = registerAllocator.getRegisterName(registerIndex);
     emit("push " + regName + (comment.empty() ? "" : " // " + comment));
     stackDepth++;
@@ -268,7 +275,8 @@ void CodeGenerator::pushRegisterToStack(int registerIndex, const std::string& co
     }
 }
 
-void CodeGenerator::popStackToRegister(int registerIndex, const std::string& comment) {
+void CodeGenerator::popStackToRegister(int registerIndex,
+                                       const std::string &comment) {
     if (stackDepth <= 0) {
         throw CodeGeneratorError("Stack underflow: trying to pop to register");
     }
@@ -285,48 +293,53 @@ void CodeGenerator::popStackToRegister(int registerIndex, const std::string& com
 // ============================================================================
 
 // FQDN Helper Methods
-std::string CodeGenerator::getVariableFQDN(const std::string& name) {
-    Symbol* symbol = semanticAnalyzer->getSymbolTable().findSymbol(name);
-    if (!symbol) {
+std::string CodeGenerator::getVariableFQDN(const std::string &name) {
+    Symbol *symbol = semanticAnalyzer->getSymbolTable().findSymbol(name);
+    if (symbol == nullptr) {
         emitComment("DEBUG: Variable " + name + " not found in symbol table");
-        return name;  // Fallback to simple name if not found
+        return name; // Fallback to simple name if not found
     }
     return symbol->fqdn;
 }
 
-std::string CodeGenerator::getLayoutFQDN(const std::string& name) {
-    Symbol* symbol = semanticAnalyzer->getSymbolTable().findSymbol(name);
-    if (!symbol || symbol->symbolKind != SymbolKind::LAYOUT) {
+std::string CodeGenerator::getLayoutFQDN(const std::string &name) {
+    Symbol *symbol = semanticAnalyzer->getSymbolTable().findSymbol(name);
+    if ((symbol == nullptr) || symbol->symbolKind != SymbolKind::LAYOUT) {
         emitComment("DEBUG: Layout " + name + " not found in symbol table");
-        return name;  // Fallback to simple name if not found
+        return name; // Fallback to simple name if not found
     }
     return symbol->fqdn;
 }
 
-void CodeGenerator::trackVariableLayout(const std::string& varFQDN, const std::string& layoutFQDN) {
+void CodeGenerator::trackVariableLayout(const std::string &varFQDN,
+                                        const std::string &layoutFQDN) {
     variableLayoutTypes[varFQDN] = layoutFQDN;
-    emitComment("DEBUG: Tracking variable " + varFQDN + " as layout type " + layoutFQDN);
+    emitComment("DEBUG: Tracking variable " + varFQDN + " as layout type " +
+                layoutFQDN);
 }
 
-std::string CodeGenerator::getVariableLayoutType(const std::string& varFQDN) {
+std::string CodeGenerator::getVariableLayoutType(const std::string &varFQDN) {
     // Find the variable's symbol using its FQDN
-    Symbol* sym = semanticAnalyzer->getSymbolTable().findSymbolByFQDN(varFQDN);
-    if (!sym) {
-        emitComment("DEBUG: Variable " + varFQDN + " not found in symbol table");
+    Symbol *sym = semanticAnalyzer->getSymbolTable().findSymbolByFQDN(varFQDN);
+    if (sym == nullptr) {
+        emitComment("DEBUG: Variable " + varFQDN +
+                    " not found in symbol table");
         return "";
     }
 
-    std::cout << "CRIT: " << sym->toString() << std::endl;
+    std::cout << "CRIT: " << sym->toString() << '\n';
 
     // Retrieve the type of the variable
     if (sym->type) {
         if (sym->type->kind == SemanticTypeKind::LAYOUT) {
             // If the type is a layout, return the layout's FQDN
-            const auto* lst = dynamic_cast<const LayoutSemanticType*>(sym->type.get());
-            std::cout << "[CRIT 2]" << lst->toString() << std::endl;
+            const auto *lst =
+                dynamic_cast<const LayoutSemanticType *>(sym->type.get());
+            std::cout << "[CRIT 2]" << lst->toString() << '\n';
             std::string layoutName = lst->layoutName;
             if (!layoutName.empty()) {
-                emitComment("DEBUG: Found layout type " + layoutName + " for variable " + varFQDN);
+                emitComment("DEBUG: Found layout type " + layoutName +
+                            " for variable " + varFQDN);
                 trackVariableLayout(varFQDN, layoutName);
                 return layoutName;
             }
@@ -338,23 +351,29 @@ std::string CodeGenerator::getVariableLayoutType(const std::string& varFQDN) {
 }
 
 // Memory Operations with FQDN support
-void CodeGenerator::loadFromMemory(int registerIndex, const std::string& varFQDN) {
+void CodeGenerator::loadFromMemory(int registerIndex,
+                                   const std::string &varFQDN) {
     int address = memoryManager.getVariableAddress(varFQDN);
-    emit("a" + std::to_string(registerIndex) + " := p(" + std::to_string(address) + ") // Load " + varFQDN);
+    emit("a" + std::to_string(registerIndex) + " := p(" +
+         std::to_string(address) + ") // Load " + varFQDN);
 }
 
-void CodeGenerator::storeToMemory(const std::string& varFQDN, int registerIndex) {
+void CodeGenerator::storeToMemory(const std::string &varFQDN,
+                                  int registerIndex) {
     int address = memoryManager.getVariableAddress(varFQDN);
-    emit("p(" + std::to_string(address) + ") := a" + std::to_string(registerIndex) + " // Store " + varFQDN);
+    emit("p(" + std::to_string(address) + ") := a" +
+         std::to_string(registerIndex) + " // Store " + varFQDN);
 }
 
-void CodeGenerator::loadFromMemoryToStack(const std::string& varFQDN, const std::string& comment) {
+void CodeGenerator::loadFromMemoryToStack(const std::string &varFQDN,
+                                          const std::string &comment) {
     int address = memoryManager.getVariableAddress(varFQDN);
     emit("a0 := p(" + std::to_string(address) + ") // Load " + varFQDN);
     pushToStack(comment.empty() ? "Load " + varFQDN : comment);
 }
 
-void CodeGenerator::storeFromStackToMemory(const std::string& varFQDN, const std::string& comment) {
+void CodeGenerator::storeFromStackToMemory(const std::string &varFQDN,
+                                           const std::string &comment) {
     int address = memoryManager.getVariableAddress(varFQDN);
     popFromStack(comment.empty() ? "Store " + varFQDN : comment);
     emit("p(" + std::to_string(address) + ") := a0 // Store " + varFQDN);
@@ -364,91 +383,109 @@ void CodeGenerator::storeFromStackToMemory(const std::string& varFQDN, const std
 // Statement Generation
 // ============================================================================
 
-void CodeGenerator::generateStatement(const Statement* stmt) {
-    if (!stmt) return;
+void CodeGenerator::generateStatement(const Statement *stmt) {
+    if (stmt == nullptr)
+        return;
 
     switch (stmt->nodeType) {
-        case NodeType::NAMESPACE_DECLARATION:
-            generateNamespaceDeclaration(dynamic_cast<const NamespaceDeclaration*>(stmt));
-            break;
-        case NodeType::VARIABLE_DECLARATION:
-            generateVariableDeclaration(dynamic_cast<const VariableDeclaration*>(stmt));
-            break;
-        case NodeType::ASSIGNMENT:
-            generateAssignment(dynamic_cast<const Assignment*>(stmt));
-            break;
-        case NodeType::FUNCTION_DECLARATION:
-            generateFunctionDeclaration(dynamic_cast<const FunctionDeclaration*>(stmt));
-            break;
-        case NodeType::RETURN_STATEMENT:
-            generateReturnStatement(dynamic_cast<const ReturnStatement*>(stmt));
-            break;
-        case NodeType::IF_STATEMENT:
-            generateIfStatement(dynamic_cast<const IfStatement*>(stmt));
-            break;
-        case NodeType::WHILE_STATEMENT:
-            generateWhileStatement(dynamic_cast<const WhileStatement*>(stmt));
-            break;
-        case NodeType::BLOCK_STATEMENT:
-            generateBlockStatement(dynamic_cast<const BlockStatement*>(stmt));
-            break;
-        case NodeType::EXPRESSION_STATEMENT:
-            generateExpressionStatement(dynamic_cast<const ExpressionStatement*>(stmt));
-            break;
-        case NodeType::LAYOUT_DECLARATION:
-            generateLayoutDeclaration(dynamic_cast<const LayoutDeclaration*>(stmt));
-            break;
-        default:
-            emitComment("Warning: Unhandled statement type");
-            break;
+    case NodeType::NAMESPACE_DECLARATION:
+        generateNamespaceDeclaration(
+            dynamic_cast<const NamespaceDeclaration *>(stmt));
+        break;
+    case NodeType::VARIABLE_DECLARATION:
+        generateVariableDeclaration(
+            dynamic_cast<const VariableDeclaration *>(stmt));
+        break;
+    case NodeType::ASSIGNMENT:
+        generateAssignment(dynamic_cast<const Assignment *>(stmt));
+        break;
+    case NodeType::FUNCTION_DECLARATION:
+        generateFunctionDeclaration(
+            dynamic_cast<const FunctionDeclaration *>(stmt));
+        break;
+    case NodeType::RETURN_STATEMENT:
+        generateReturnStatement(dynamic_cast<const ReturnStatement *>(stmt));
+        break;
+    case NodeType::IF_STATEMENT:
+        generateIfStatement(dynamic_cast<const IfStatement *>(stmt));
+        break;
+    case NodeType::WHILE_STATEMENT:
+        generateWhileStatement(dynamic_cast<const WhileStatement *>(stmt));
+        break;
+    case NodeType::BLOCK_STATEMENT:
+        generateBlockStatement(dynamic_cast<const BlockStatement *>(stmt));
+        break;
+    case NodeType::EXPRESSION_STATEMENT:
+        generateExpressionStatement(
+            dynamic_cast<const ExpressionStatement *>(stmt));
+        break;
+    case NodeType::LAYOUT_DECLARATION:
+        generateLayoutDeclaration(
+            dynamic_cast<const LayoutDeclaration *>(stmt));
+        break;
+    default:
+        emitComment("Warning: Unhandled statement type");
+        break;
     }
 }
 
-void CodeGenerator::generateNamespaceDeclaration(const NamespaceDeclaration* namespaceDecl) {
+void CodeGenerator::generateNamespaceDeclaration(
+    const NamespaceDeclaration *namespaceDecl) {
     emitComment("Namespace: " + namespaceDecl->name);
 
     // Push namespace scope
-    if (semanticAnalyzer) semanticAnalyzer->getSymbolTable().pushScope("namespace_" + namespaceDecl->name);
+    if (semanticAnalyzer != nullptr)
+        semanticAnalyzer->getSymbolTable().pushScope("namespace_" +
+                                                     namespaceDecl->name);
     memoryManager.pushScope("namespace_" + namespaceDecl->name);
 
     // Generate code for all statements in the namespace
-    for (const auto& stmt : namespaceDecl->statements) {
+    for (const auto &stmt : namespaceDecl->statements) {
         generateStatement(stmt.get());
     }
 
     // Pop namespace scope
     memoryManager.popScope();
-    if (semanticAnalyzer) semanticAnalyzer->getSymbolTable().popScope();
+    if (semanticAnalyzer != nullptr)
+        semanticAnalyzer->getSymbolTable().popScope();
 
     emit("");
 }
 
 // Update variable declaration to use FQDNs
-void CodeGenerator::generateVariableDeclaration(const VariableDeclaration* varDecl) {
+void CodeGenerator::generateVariableDeclaration(
+    const VariableDeclaration *varDecl) {
     std::string varFQDN = getVariableFQDN(varDecl->name);
-    std::cout << "Variable declaration: " << varFQDN << std::endl;
+    std::cout << "Variable declaration: " << varFQDN << '\n';
     // Track layout type if applicable by inspecting the symbol's semantic type
-    if (semanticAnalyzer) {
-        Symbol* varSymbol = semanticAnalyzer->getSymbolTable().findSymbolByFQDN(varFQDN);
-        std::cout << "Variable symbol: " << varSymbol->name << std::endl;
-        if (varSymbol && varSymbol->type) {
-            const SemanticType* currentType = varSymbol->type.get();
+    if (semanticAnalyzer != nullptr) {
+        Symbol *varSymbol =
+            semanticAnalyzer->getSymbolTable().findSymbolByFQDN(varFQDN);
+        std::cout << "Variable symbol: " << varSymbol->name << '\n';
+        if ((varSymbol != nullptr) && varSymbol->type) {
+            const SemanticType *currentType = varSymbol->type.get();
             // Handle pointers to layouts
             if (currentType->isPointer()) {
-                const PointerSemanticType* ptrType = static_cast<const PointerSemanticType*>(currentType);
+                const auto *ptrType =
+                    static_cast<const PointerSemanticType *>(currentType);
                 currentType = ptrType->pointsTo.get();
             }
             // Check if the base type is a layout
             if (currentType->isLayout()) {
-                const LayoutSemanticType* layoutType = static_cast<const LayoutSemanticType*>(currentType);
+                const auto *layoutType =
+                    static_cast<const LayoutSemanticType *>(currentType);
                 trackVariableLayout(varFQDN, layoutType->layoutName);
-                std::cout << "Layout type: " << layoutType->layoutName << std::endl;
+                std::cout << "Layout type: " << layoutType->layoutName << '\n';
                 // Get all members of the layout
-                for (const auto& member : layoutType->members) {
-                    std::cout << "Member FQDN: " << varFQDN + "::" + member->name << std::endl;
-                    std::cout << "Member: " << member->name << std::endl;
-                    std::cout << "Member type: " << member->type->toString() << std::endl;
-                    std::cout << "Invoking memoryManager.allocateMemory(" << varFQDN + "::" + member->name << ")" << std::endl;
+                for (const auto &member : layoutType->members) {
+                    std::cout
+                        << "Member FQDN: " << varFQDN + "::" + member->name
+                        << '\n';
+                    std::cout << "Member: " << member->name << '\n';
+                    std::cout << "Member type: " << member->type->toString()
+                              << '\n';
+                    std::cout << "Invoking memoryManager.allocateMemory("
+                              << varFQDN + "::" + member->name << ")" << '\n';
                     memoryManager.allocateMemory(varFQDN + "::" + member->name);
                 }
             }
@@ -465,21 +502,24 @@ void CodeGenerator::generateVariableDeclaration(const VariableDeclaration* varDe
     }
 }
 
-void CodeGenerator::generateAssignment(const Assignment* assignment) {
+void CodeGenerator::generateAssignment(const Assignment *assignment) {
     emitComment("Assignment");
     generateExpression(assignment->value.get()); // value on stack
 
     if (assignment->target->nodeType == NodeType::IDENTIFIER) {
-        const Identifier* id = static_cast<const Identifier*>(assignment->target.get());
+        const auto *id =
+            static_cast<const Identifier *>(assignment->target.get());
         std::string varFQDN = getVariableFQDN(id->name);
         storeFromStackToMemory(varFQDN, "Assign to " + id->name);
     } else if (assignment->target->nodeType == NodeType::MEMBER_ACCESS) {
-        const MemberAccess* memberAccess = static_cast<const MemberAccess*>(assignment->target.get());
+        const auto *memberAccess =
+            static_cast<const MemberAccess *>(assignment->target.get());
         emitComment("Member access assignment");
 
         // Only support identifier.object for now
         if (memberAccess->object->nodeType == NodeType::IDENTIFIER) {
-            const Identifier* objId = static_cast<const Identifier*>(memberAccess->object.get());
+            const auto *objId =
+                static_cast<const Identifier *>(memberAccess->object.get());
             std::string objFQDN = getVariableFQDN(objId->name);
 
             if (memoryManager.hasVariable(objFQDN)) {
@@ -490,24 +530,40 @@ void CodeGenerator::generateAssignment(const Assignment* assignment) {
                 bool found = false;
                 if (!layoutFQDN.empty()) {
                     try {
-                        memberOffset = memoryManager.getLayoutMemberOffset(layoutFQDN, memberAccess->memberName);
+                        memberOffset = memoryManager.getLayoutMemberOffset(
+                            layoutFQDN, memberAccess->memberName);
                         found = true;
-                        emitComment("DEBUG: Found member " + memberAccess->memberName + " in layout " + layoutFQDN + " at offset " + std::to_string(memberOffset));
-                    } catch (const std::exception&) {
-                        emitComment("ERROR: Member " + memberAccess->memberName + " not found in layout " + layoutFQDN);
+                        emitComment("DEBUG: Found member " +
+                                    memberAccess->memberName + " in layout " +
+                                    layoutFQDN + " at offset " +
+                                    std::to_string(memberOffset));
+                    } catch (const std::exception &) {
+                        emitComment("ERROR: Member " +
+                                    memberAccess->memberName +
+                                    " not found in layout " + layoutFQDN);
                     }
                 }
 
                 if (!found) {
-                    std::cout << "Using default offset 0 for member assignment " << memberAccess->memberName << " (layout: " << layoutFQDN << ", " + objFQDN + ")" << std::endl;
-                    emitComment("Warning: Using default offset 0 for member assignment " + memberAccess->memberName + " (layout: " + layoutFQDN + ") | " + objFQDN);
+                    std::cout << "Using default offset 0 for member assignment "
+                              << memberAccess->memberName
+                              << " (layout: " << layoutFQDN
+                              << ", " + objFQDN + ")" << '\n';
+                    emitComment("Warning: Using default offset 0 for member "
+                                "assignment " +
+                                memberAccess->memberName +
+                                " (layout: " + layoutFQDN + ") | " + objFQDN);
                 }
 
                 int memberAddress = baseAddress + memberOffset;
                 popFromStack("Get assignment value");
-                emit("p(" + std::to_string(memberAddress) + ") := a0 // Store value in member " + memberAccess->memberName);
+                emit("p(" + std::to_string(memberAddress) +
+                     ") := a0 // Store value in member " +
+                     memberAccess->memberName);
             } else {
-                emitComment("Warning: Object not found for member assignment: " + objFQDN);
+                emitComment(
+                    "Warning: Object not found for member assignment: " +
+                    objFQDN);
                 popFromStack("Discard assignment value");
             }
         } else {
@@ -516,7 +572,8 @@ void CodeGenerator::generateAssignment(const Assignment* assignment) {
         }
     } else if (assignment->target->nodeType == NodeType::ARRAY_ACCESS) {
         // Existing array access assignment logic remains unchanged
-        const ArrayAccess* arrayAccess = static_cast<const ArrayAccess*>(assignment->target.get());
+        const auto *arrayAccess =
+            static_cast<const ArrayAccess *>(assignment->target.get());
         emitComment("Array access assignment");
         generateExpression(arrayAccess->array.get());
         generateExpression(arrayAccess->index.get());
@@ -531,15 +588,17 @@ void CodeGenerator::generateAssignment(const Assignment* assignment) {
     emit("");
 }
 
-void CodeGenerator::generateExpressionStatement(const ExpressionStatement* exprStmt) {
+void CodeGenerator::generateExpressionStatement(
+    const ExpressionStatement *exprStmt) {
     emitComment("Expression statement");
     generateExpression(exprStmt->expression.get());
-    // Pop the result since it's not used
+    // Pop the result since iter's not used
     popFromStack("Discard expression result");
     emit("");
 }
 
-void CodeGenerator::generateLayoutDeclaration(const LayoutDeclaration* layoutDecl) {
+void CodeGenerator::generateLayoutDeclaration(
+    const LayoutDeclaration *layoutDecl) {
     emitComment("Layout declaration: " + layoutDecl->name);
     emitComment("DEBUG: Processing layout declaration for " + layoutDecl->name);
     setupLayoutMembers(layoutDecl->name, layoutDecl->members);
@@ -550,64 +609,67 @@ void CodeGenerator::generateLayoutDeclaration(const LayoutDeclaration* layoutDec
 // Expression Generation (Basic Framework)
 // ============================================================================
 
-void CodeGenerator::generateExpression(const Expression* expr) {
-    if (!expr) return;
+void CodeGenerator::generateExpression(const Expression *expr) {
+    if (expr == nullptr)
+        return;
 
     switch (expr->nodeType) {
-        case NodeType::LITERAL:
-            generateLiteral(dynamic_cast<const Literal*>(expr));
-            break;
-        case NodeType::STRING_LITERAL:
-            generateStringLiteral(dynamic_cast<const StringLiteral*>(expr));
-            break;
-        case NodeType::IDENTIFIER:
-            generateIdentifier(dynamic_cast<const Identifier*>(expr));
-            break;
-        case NodeType::BINARY_EXPRESSION:
-            generateBinaryExpression(dynamic_cast<const BinaryExpression*>(expr));
-            break;
-        case NodeType::UNARY_EXPRESSION:
-            generateUnaryExpression(dynamic_cast<const UnaryExpression*>(expr));
-            break;
-        case NodeType::FUNCTION_CALL:
-            generateFunctionCall(dynamic_cast<const FunctionCall*>(expr));
-            break;
-        case NodeType::MEMBER_ACCESS:
-            generateMemberAccess(dynamic_cast<const MemberAccess*>(expr));
-            break;
-        case NodeType::ARRAY_ACCESS:
-            generateArrayAccess(dynamic_cast<const ArrayAccess*>(expr));
-            break;
-        case NodeType::ARRAY_ALLOCATION:
-            generateArrayAllocation(dynamic_cast<const ArrayAllocation*>(expr));
-            break;
-        case NodeType::SYSCALL_EXPRESSION:
-            generateSyscallExpression(dynamic_cast<const SyscallExpression*>(expr));
-            break;
-        case NodeType::TYPE_CAST:
-            generateTypeCast(dynamic_cast<const TypeCast*>(expr));
-            break;
-        default:
-            emitComment("Warning: Unhandled expression type");
-            emit("a0 := 0");
-            pushToStack("Default value for unhandled expression");
-            break;
+    case NodeType::LITERAL:
+        generateLiteral(dynamic_cast<const Literal *>(expr));
+        break;
+    case NodeType::STRING_LITERAL:
+        generateStringLiteral(dynamic_cast<const StringLiteral *>(expr));
+        break;
+    case NodeType::IDENTIFIER:
+        generateIdentifier(dynamic_cast<const Identifier *>(expr));
+        break;
+    case NodeType::BINARY_EXPRESSION:
+        generateBinaryExpression(dynamic_cast<const BinaryExpression *>(expr));
+        break;
+    case NodeType::UNARY_EXPRESSION:
+        generateUnaryExpression(dynamic_cast<const UnaryExpression *>(expr));
+        break;
+    case NodeType::FUNCTION_CALL:
+        generateFunctionCall(dynamic_cast<const FunctionCall *>(expr));
+        break;
+    case NodeType::MEMBER_ACCESS:
+        generateMemberAccess(dynamic_cast<const MemberAccess *>(expr));
+        break;
+    case NodeType::ARRAY_ACCESS:
+        generateArrayAccess(dynamic_cast<const ArrayAccess *>(expr));
+        break;
+    case NodeType::ARRAY_ALLOCATION:
+        generateArrayAllocation(dynamic_cast<const ArrayAllocation *>(expr));
+        break;
+    case NodeType::SYSCALL_EXPRESSION:
+        generateSyscallExpression(
+            dynamic_cast<const SyscallExpression *>(expr));
+        break;
+    case NodeType::TYPE_CAST:
+        generateTypeCast(dynamic_cast<const TypeCast *>(expr));
+        break;
+    default:
+        emitComment("Warning: Unhandled expression type");
+        emit("a0 := 0");
+        pushToStack("Default value for unhandled expression");
+        break;
     }
 }
 
-void CodeGenerator::generateTypeCast(const TypeCast* typeCast) {
+void CodeGenerator::generateTypeCast(const TypeCast *typeCast) {
     emitComment("Type cast");
 
     // Generate the expression to be cast
     generateExpression(typeCast->expression.get());
 
     // Get source and target types
-    const Type* targetType = typeCast->targetType.get();
-    const Expression* sourceExpr = typeCast->expression.get();
+    const Type *targetType = typeCast->targetType.get();
+    const Expression *sourceExpr = typeCast->expression.get();
 
     // For now, we only handle basic types
     if (targetType->nodeType == NodeType::BASIC_TYPE) {
-        const BasicType* basicTargetType = static_cast<const BasicType*>(targetType);
+        const auto *basicTargetType =
+            static_cast<const BasicType *>(targetType);
 
         // No actual conversion needed for int to char or char to int
         // Just emit a warning if casting between different sizes
@@ -616,8 +678,10 @@ void CodeGenerator::generateTypeCast(const TypeCast* typeCast) {
             // Use BITWISE_AND with 255 to mask to char size
             emit("a0 := 255 // Load mask for char size");
             pushToStack("Mask to stack");
-            emit("call namespace_bit_BITWISE_AND // Mask to char size (8 bits)");
-            pushToStack("cast result");  // Use pushToStack to properly track stack depth
+            emit(
+                "call namespace_bit_BITWISE_AND // Mask to char size (8 bits)");
+            pushToStack(
+                "cast result"); // Use pushToStack to properly track stack depth
         } else {
             // For int, we don't need to do anything special
             // The value is already the right size
@@ -630,7 +694,7 @@ void CodeGenerator::generateTypeCast(const TypeCast* typeCast) {
     }
 }
 
-void CodeGenerator::generateLiteral(const Literal* literal) {
+void CodeGenerator::generateLiteral(const Literal *literal) {
     std::string value = literal->value;
     if (literal->literalType == TokenType::CHARACTER) {
         // Convert character to ASCII value
@@ -650,7 +714,7 @@ void CodeGenerator::generateLiteral(const Literal* literal) {
     }
 }
 
-void CodeGenerator::generateStringLiteral(const StringLiteral* stringLit) {
+void CodeGenerator::generateStringLiteral(const StringLiteral *stringLit) {
     std::string value = stringLit->value;
     int stringLength = value.length();
 
@@ -662,54 +726,59 @@ void CodeGenerator::generateStringLiteral(const StringLiteral* stringLit) {
     // Initialize each character in the array
     for (int i = 0; i < stringLength; i++) {
         char c = value[i];
-        int asciiValue = static_cast<int>(static_cast<unsigned char>(c)); // Handle negative char values
+        int asciiValue = static_cast<int>(
+            static_cast<unsigned char>(c)); // Handle negative char values
 
         // Create a readable comment for the character
         std::string charComment;
         switch (c) {
-            case '\n':
-                charComment = "\\n";
-                break;
-            case '\t':
-                charComment = "\\t";
-                break;
-            case '\r':
-                charComment = "\\r";
-                break;
-            case '\0':
-                charComment = "\\0";
-                break;
-            case '\\':
-                charComment = "\\\\";
-                break;
-            case '"':
-                charComment = "\\\"";
-                break;
-            default:
-                if (c >= 32 && c <= 126) { // Printable ASCII characters
-                    charComment = "'" + std::string(1, c) + "'";
-                } else {
-                    charComment = "ASCII " + std::to_string(asciiValue);
-                }
-                break;
+        case '\n':
+            charComment = "\\n";
+            break;
+        case '\t':
+            charComment = "\\t";
+            break;
+        case '\r':
+            charComment = "\\r";
+            break;
+        case '\0':
+            charComment = "\\0";
+            break;
+        case '\\':
+            charComment = "\\\\";
+            break;
+        case '"':
+            charComment = "\\\"";
+            break;
+        default:
+            if (c >= 32 && c <= 126) { // Printable ASCII characters
+                charComment = "'" + std::string(1, c) + "'";
+            } else {
+                charComment = "ASCII " + std::to_string(asciiValue);
+            }
+            break;
         }
 
-        emit("p(" + std::to_string(baseAddress + i) + ") := " + std::to_string(asciiValue) + " // <char alloc>");
+        emit("p(" + std::to_string(baseAddress + i) +
+             ") := " + std::to_string(asciiValue) + " // <char alloc>");
     }
 
     // Add null terminator at the end
-    emit("p(" + std::to_string(baseAddress + stringLength) + ") := 0 // Null terminator");
+    emit("p(" + std::to_string(baseAddress + stringLength) +
+         ") := 0 // Null terminator");
 
     // Push the base address of the string array onto the stack
-    emit("a0 := " + std::to_string(baseAddress) + " // Base address of string array");
+    emit("a0 := " + std::to_string(baseAddress) +
+         " // Base address of string array");
     pushToStack(" string array address");
 }
 
-void CodeGenerator::generateIdentifier(const Identifier* id) {
+void CodeGenerator::generateIdentifier(const Identifier *id) {
     std::string varFQDN = getVariableFQDN(id->name);
     if (memoryManager.hasVariable(varFQDN)) {
         int address = memoryManager.getVariableAddress(varFQDN);
-        emitComment("DEBUG: Loading variable " + varFQDN + " from address " + std::to_string(address));
+        emitComment("DEBUG: Loading variable " + varFQDN + " from address " +
+                    std::to_string(address));
         emit("a0 := p(" + std::to_string(address) + ") // Load " + id->name);
         pushToStack(" variable " + id->name);
     } else {
@@ -719,7 +788,7 @@ void CodeGenerator::generateIdentifier(const Identifier* id) {
     }
 }
 
-void CodeGenerator::generateBinaryExpression(const BinaryExpression* binExpr) {
+void CodeGenerator::generateBinaryExpression(const BinaryExpression *binExpr) {
     // Generate left operand (will be on stack)
     generateExpression(binExpr->left.get());
 
@@ -746,17 +815,17 @@ void CodeGenerator::generateBinaryExpression(const BinaryExpression* binExpr) {
         // a0 now has left operand, a1 has right operand
 
         switch (binExpr->operator_) {
-            case TokenType::BITWISE_AND:
-                emit("call namespace_bit_BITWISE_AND // Perform bitwise AND");
-                break;
-            case TokenType::BITWISE_OR:
-                emit("call namespace_bit_BITWISE_OR // Perform bitwise OR");
-                break;
-            case TokenType::BITWISE_XOR:
-                emit("call namespace_bit_BITWISE_XOR // Perform bitwise XOR");
-                break;
-            default:
-                break;
+        case TokenType::BITWISE_AND:
+            emit("call namespace_bit_BITWISE_AND // Perform bitwise AND");
+            break;
+        case TokenType::BITWISE_OR:
+            emit("call namespace_bit_BITWISE_OR // Perform bitwise OR");
+            break;
+        case TokenType::BITWISE_XOR:
+            emit("call namespace_bit_BITWISE_XOR // Perform bitwise XOR");
+            break;
+        default:
+            break;
         }
 
         // Result is now in a0
@@ -769,63 +838,66 @@ void CodeGenerator::generateBinaryExpression(const BinaryExpression* binExpr) {
     }
 }
 
-void CodeGenerator::generateUnaryExpression(const UnaryExpression* unExpr) {
+void CodeGenerator::generateUnaryExpression(const UnaryExpression *unExpr) {
     emitComment("Unary expression");
 
     switch (unExpr->operator_) {
-        case TokenType::REFERENCE: {
-            // Reference operator (->): get address of variable
-            if (unExpr->operand->nodeType == NodeType::IDENTIFIER) {
-                const Identifier* id = static_cast<const Identifier*>(unExpr->operand.get());
-                if (memoryManager.hasVariable(id->name)) {
-                    int address = memoryManager.getVariableAddress(id->name);
-                    emit("a0 := " + std::to_string(address) + " // Address of " + id->name);
-                    pushToStack(" address");
-                } else {
-                    emitComment("Warning: Taking address of undefined variable " + id->name);
-                    emit("a0 := 0");
-                    pushToStack(" null address");
-                }
+    case TokenType::REFERENCE: {
+        // Reference operator (->): get address of variable
+        if (unExpr->operand->nodeType == NodeType::IDENTIFIER) {
+            const auto *id =
+                static_cast<const Identifier *>(unExpr->operand.get());
+            if (memoryManager.hasVariable(id->name)) {
+                int address = memoryManager.getVariableAddress(id->name);
+                emit("a0 := " + std::to_string(address) + " // Address of " +
+                     id->name);
+                pushToStack(" address");
             } else {
-                emitComment("Warning: Reference operator on non-identifier");
+                emitComment("Warning: Taking address of undefined variable " +
+                            id->name);
                 emit("a0 := 0");
                 pushToStack(" null address");
             }
-            break;
+        } else {
+            emitComment("Warning: Reference operator on non-identifier");
+            emit("a0 := 0");
+            pushToStack(" null address");
         }
-        case TokenType::DEREFERENCE: {
-            // Dereference operator (<-): load value from address
-            generateExpression(unExpr->operand.get()); // Get the address
-            popFromStack("Get address");
-            emit("a0 := p(a0) // Dereference address");
-            pushToStack(" dereferenced value");
-            break;
-        }
-        case TokenType::MINUS: {
-            // Unary minus: negate value
-            generateExpression(unExpr->operand.get());
-            popFromStack("Get value");
-            emit("a1 := 0");
-            emit("a0 := a1 - a0 // Negate value");
-            pushToStack(" negated value");
-            break;
-        }
-        case TokenType::BITWISE_NOT: {
-            // Bitwise NOT: flip all bits
-            generateExpression(unExpr->operand.get());
-            popFromStack("Get value");
-            emit("a0 := ~a0 // Bitwise NOT");
-            pushToStack(" NOT result");
-            break;
-        }
-        default:
-            emitComment("Warning: Unsupported unary operator");
-            generateExpression(unExpr->operand.get());
-            break;
+        break;
+    }
+    case TokenType::DEREFERENCE: {
+        // Dereference operator (<-): load value from address
+        generateExpression(unExpr->operand.get()); // Get the address
+        popFromStack("Get address");
+        emit("a0 := p(a0) // Dereference address");
+        pushToStack(" dereferenced value");
+        break;
+    }
+    case TokenType::MINUS: {
+        // Unary minus: negate value
+        generateExpression(unExpr->operand.get());
+        popFromStack("Get value");
+        emit("a1 := 0");
+        emit("a0 := a1 - a0 // Negate value");
+        pushToStack(" negated value");
+        break;
+    }
+    case TokenType::BITWISE_NOT: {
+        // Bitwise NOT: flip all bits
+        generateExpression(unExpr->operand.get());
+        popFromStack("Get value");
+        emit("a0 := ~a0 // Bitwise NOT");
+        pushToStack(" NOT result");
+        break;
+    }
+    default:
+        emitComment("Warning: Unsupported unary operator");
+        generateExpression(unExpr->operand.get());
+        break;
     }
 }
 
-void CodeGenerator::generateFunctionCall(const FunctionCall* funcCall) {
+void CodeGenerator::generateFunctionCall(const FunctionCall *funcCall) {
     // Check if this is a namespace-qualified function call
     size_t dotPos = funcCall->functionName.find('.');
     std::string actualFunctionName;
@@ -835,28 +907,31 @@ void CodeGenerator::generateFunctionCall(const FunctionCall* funcCall) {
         std::string functionName = funcCall->functionName.substr(dotPos + 1);
 
         // Look up the function in the semantic analyzer to get its FQDN
-        if (semanticAnalyzer) {
+        if (semanticAnalyzer != nullptr) {
             // Push namespace scope to find the function
-            auto& symTable = semanticAnalyzer->getSymbolTable();
+            auto &symTable = semanticAnalyzer->getSymbolTable();
             symTable.pushScope("namespace_" + namespaceName);
-            Symbol* symbol = symTable.findSymbol(functionName);
+            Symbol *symbol = symTable.findSymbol(functionName);
             symTable.popScope();
 
-            if (symbol) {
+            if (symbol != nullptr) {
                 actualFunctionName = symbol->fqdn;
             } else {
                 // Fallback to old format if symbol not found
-                actualFunctionName = "namespace_" + namespaceName + "_" + functionName;
+                actualFunctionName =
+                    "namespace_" + namespaceName + "_" + functionName;
             }
         } else {
             // Fallback to old format if no semantic analyzer
-            actualFunctionName = "namespace_" + namespaceName + "_" + functionName;
+            actualFunctionName =
+                "namespace_" + namespaceName + "_" + functionName;
         }
     } else {
         // For non-namespace functions, try to get FQDN from symbol table
-        if (semanticAnalyzer) {
-            Symbol* symbol = semanticAnalyzer->getSymbolTable().findSymbol(funcCall->functionName);
-            if (symbol) {
+        if (semanticAnalyzer != nullptr) {
+            Symbol *symbol = semanticAnalyzer->getSymbolTable().findSymbol(
+                funcCall->functionName);
+            if (symbol != nullptr) {
                 actualFunctionName = symbol->fqdn;
             } else {
                 actualFunctionName = funcCall->functionName;
@@ -880,20 +955,22 @@ void CodeGenerator::generateFunctionCall(const FunctionCall* funcCall) {
     // Call the function using the actual function name
     emit("call " + actualFunctionName + " // Function call");
 
-    // Function call result is already on stack (function pushed it)
+    // Function call result is already on stack (function pushed iter)
     // No additional stack operations needed
     emitComment("DEBUG: Function call completed - return value is on stack");
 }
 
 // Update member access to use FQDNs
-void CodeGenerator::generateMemberAccess(const MemberAccess* memberAccess) {
-    // Generate code for the object expression first (its value ends up on stack)
+void CodeGenerator::generateMemberAccess(const MemberAccess *memberAccess) {
+    // Generate code for the object expression first (its value ends up on
+    // stack)
     generateExpression(memberAccess->object.get());
 
     // Determine variable FQDN if object is identifier
     std::string objFQDN;
     if (memberAccess->object->nodeType == NodeType::IDENTIFIER) {
-        const Identifier* objId = static_cast<const Identifier*>(memberAccess->object.get());
+        const auto *objId =
+            static_cast<const Identifier *>(memberAccess->object.get());
         objFQDN = getVariableFQDN(objId->name);
     } else {
         objFQDN = memberAccess->object->toString();
@@ -907,26 +984,33 @@ void CodeGenerator::generateMemberAccess(const MemberAccess* memberAccess) {
     }
 
     // Process each member access recursively
-    const MemberAccess* currentAccess = memberAccess;
+    const MemberAccess *currentAccess = memberAccess;
     int offset = 0;
 
     try {
-        offset = memoryManager.getLayoutMemberOffset(layoutFQDN, currentAccess->memberName);
-        emitComment("DEBUG: Found member " + currentAccess->memberName + " in layout " + layoutFQDN + " at offset " + std::to_string(offset));
-    } catch (const std::exception& e) {
-        emitComment("Warning: Using default offset 0 for member access " + currentAccess->memberName + " (layout: " + layoutFQDN + ")");
-        std::cout << "Using default offset 0 for member access " << currentAccess->memberName << " (layout: " << layoutFQDN << ", object: " + objFQDN + ")" << std::endl;
-        std::cout << "Exception: " << e.what() << std::endl;
+        offset = memoryManager.getLayoutMemberOffset(layoutFQDN,
+                                                     currentAccess->memberName);
+        emitComment("DEBUG: Found member " + currentAccess->memberName +
+                    " in layout " + layoutFQDN + " at offset " +
+                    std::to_string(offset));
+    } catch (const std::exception &e) {
+        emitComment("Warning: Using default offset 0 for member access " +
+                    currentAccess->memberName + " (layout: " + layoutFQDN +
+                    ")");
+        std::cout << "Using default offset 0 for member access "
+                  << currentAccess->memberName << " (layout: " << layoutFQDN
+                  << ", object: " + objFQDN + ")" << '\n';
+        std::cout << "Exception: " << e.what() << '\n';
     }
-
 
     // Add total offset to base address
     popFromStack("Get base address");
-    emit("a0 := a0 + " + std::to_string(offset) + " // Add total member offset");
+    emit("a0 := a0 + " + std::to_string(offset) +
+         " // Add total member offset");
     pushToStack(" member address");
 }
 
-void CodeGenerator::generateArrayAccess(const ArrayAccess* arrayAccess) {
+void CodeGenerator::generateArrayAccess(const ArrayAccess *arrayAccess) {
     emitComment("Array access");
 
     // Generate the array base address
@@ -944,7 +1028,7 @@ void CodeGenerator::generateArrayAccess(const ArrayAccess* arrayAccess) {
     pushToStack(" element value");
 }
 
-void CodeGenerator::generateArrayAllocation(const ArrayAllocation* arrayAlloc) {
+void CodeGenerator::generateArrayAllocation(const ArrayAllocation *arrayAlloc) {
     emitComment("Array allocation");
 
     // Generate the size expression
@@ -954,25 +1038,32 @@ void CodeGenerator::generateArrayAllocation(const ArrayAllocation* arrayAlloc) {
     popFromStack("Get array size");
     emit("a1 := a0 // Store size in a1");
 
-    // For now, allocate array at compile time with a fixed size if it's a literal
+    // For now, allocate array at compile time with a fixed size if iter's a
+    // literal
     if (arrayAlloc->size->nodeType == NodeType::LITERAL) {
-        const Literal* sizeLit = static_cast<const Literal*>(arrayAlloc->size.get());
+        const auto *sizeLit =
+            static_cast<const Literal *>(arrayAlloc->size.get());
         int arraySize = std::stoi(sizeLit->value);
 
         // Allocate contiguous memory block for the array
         int baseAddress = memoryManager.allocateArray(arraySize);
 
-        emit("a0 := " + std::to_string(baseAddress) + " // Base address of allocated array");
+        emit("a0 := " + std::to_string(baseAddress) +
+             " // Base address of allocated array");
 
         // Simple initialization to 0 (optional)
         for (int i = 0; i < arraySize; i++) {
-            emit("p(" + std::to_string(baseAddress + i) + ") := 0 // Initialize element " + std::to_string(i));
+            emit("p(" + std::to_string(baseAddress + i) +
+                 ") := 0 // Initialize element " + std::to_string(i));
         }
     } else {
         // Dynamic allocation - for now, use a simple approach
-        // This would need runtime memory management in a complete implementation
-        int baseAddress = memoryManager.allocateArray(100); // Default max size for now
-        emit("a0 := " + std::to_string(baseAddress) + " // Base address of allocated array (dynamic)");
+        // This would need runtime memory management in a complete
+        // implementation
+        int baseAddress =
+            memoryManager.allocateArray(100); // Default max size for now
+        emit("a0 := " + std::to_string(baseAddress) +
+             " // Base address of allocated array (dynamic)");
         emitComment("Warning: Dynamic array allocation simplified");
     }
 
@@ -985,27 +1076,27 @@ void CodeGenerator::generateArrayAllocation(const ArrayAllocation* arrayAlloc) {
 
 std::string CodeGenerator::getOperatorInstruction(TokenType op) {
     switch (op) {
-        case TokenType::PLUS:
-            return "stack+";
-        case TokenType::MINUS:
-            return "stack-";
-        case TokenType::MULTIPLY:
-            return "stack*";
-        case TokenType::DIVIDE:
-            return "stack/";
-        case TokenType::MODULO:
-            return "stack%";
-        case TokenType::BITWISE_AND:
-            // Special handling for bitwise AND - don't return an instruction
-            return "";
-        case TokenType::BITWISE_OR:
-            // Special handling for bitwise OR - don't return an instruction
-            return "";
-        case TokenType::BITWISE_XOR:
-            // Special handling for bitwise XOR - don't return an instruction
-            return "";
-        default:
-            return "nop // Unknown operator";
+    case TokenType::PLUS:
+        return "stack+";
+    case TokenType::MINUS:
+        return "stack-";
+    case TokenType::MULTIPLY:
+        return "stack*";
+    case TokenType::DIVIDE:
+        return "stack/";
+    case TokenType::MODULO:
+        return "stack%";
+    case TokenType::BITWISE_AND:
+        // Special handling for bitwise AND - don't return an instruction
+        return "";
+    case TokenType::BITWISE_OR:
+        // Special handling for bitwise OR - don't return an instruction
+        return "";
+    case TokenType::BITWISE_XOR:
+        // Special handling for bitwise XOR - don't return an instruction
+        return "";
+    default:
+        return "nop // Unknown operator";
     }
 }
 
@@ -1019,18 +1110,23 @@ bool CodeGenerator::isComparisonOperator(TokenType op) {
 // Helper Methods for Layout Management
 // ============================================================================
 
-void CodeGenerator::setupLayoutMembers(const std::string& layoutName, const std::vector<std::unique_ptr<LayoutMember>>& members) {
-    emitComment("DEBUG: Setting up layout '" + layoutName + "' with " + std::to_string(members.size()) + " members");
+void CodeGenerator::setupLayoutMembers(
+    const std::string &layoutName,
+    const std::vector<std::unique_ptr<LayoutMember>> &members) {
+    emitComment("DEBUG: Setting up layout '" + layoutName + "' with " +
+                std::to_string(members.size()) + " members");
 
     // Get the fully qualified layout name
     std::string layoutFQDN = layoutName;
-    if (semanticAnalyzer) {
-        Symbol* layoutSymbol = semanticAnalyzer->getSymbolTable().findSymbol(layoutName);
-        if (!layoutSymbol) {
+    if (semanticAnalyzer != nullptr) {
+        Symbol *layoutSymbol =
+            semanticAnalyzer->getSymbolTable().findSymbol(layoutName);
+        if (layoutSymbol == nullptr) {
             // Try finding by FQDN
-            layoutSymbol = semanticAnalyzer->getSymbolTable().findSymbolByFQDN(layoutName);
+            layoutSymbol =
+                semanticAnalyzer->getSymbolTable().findSymbolByFQDN(layoutName);
         }
-        if (layoutSymbol) {
+        if (layoutSymbol != nullptr) {
             layoutFQDN = layoutSymbol->fqdn;
             emitComment("DEBUG: Found layout symbol with FQDN: " + layoutFQDN);
         }
@@ -1045,22 +1141,28 @@ void CodeGenerator::setupLayoutMembers(const std::string& layoutName, const std:
     }
 
     int offset = 0;
-    for (const auto& member : members) {
-        emitComment("DEBUG: Layout " + layoutFQDN + " member '" + member->name + "' at offset " + std::to_string(offset));
+    for (const auto &member : members) {
+        emitComment("DEBUG: Layout " + layoutFQDN + " member '" + member->name +
+                    "' at offset " + std::to_string(offset));
         memoryManager.setLayoutMemberOffset(layoutFQDN, member->name, offset);
         offset += 1; // Member size (each member takes 1 slot)
     }
 }
 
-int CodeGenerator::calculateLayoutSize(const std::string& layoutName) {
+int CodeGenerator::calculateLayoutSize(const std::string &layoutName) {
     // Look up the layout in semantic analyzer to get member count
-    if (semanticAnalyzer) {
-        Symbol* layoutSymbol = semanticAnalyzer->getSymbolTable().findSymbol(layoutName);
-        if (layoutSymbol && layoutSymbol->symbolKind == SymbolKind::LAYOUT) {
-            const LayoutSemanticType* layoutType = static_cast<const LayoutSemanticType*>(layoutSymbol->type.get());
+    if (semanticAnalyzer != nullptr) {
+        Symbol *layoutSymbol =
+            semanticAnalyzer->getSymbolTable().findSymbol(layoutName);
+        if ((layoutSymbol != nullptr) &&
+            layoutSymbol->symbolKind == SymbolKind::LAYOUT) {
+            const auto *layoutType = static_cast<const LayoutSemanticType *>(
+                layoutSymbol->type.get());
             int memberCount = layoutType->members.size();
-            if (memberCount == 0) return 0;
-            // Each member takes 1 slot + 1 padding, except the last member (no padding after)
+            if (memberCount == 0)
+                return 0;
+            // Each member takes 1 slot + 1 padding, except the last member (no
+            // padding after)
             return memberCount + (memberCount - 1);
         }
     }
@@ -1071,30 +1173,34 @@ int CodeGenerator::calculateLayoutSize(const std::string& layoutName) {
 // Helper to extract layout name from a Type (handles nested pointers)
 // ============================================================================
 
-std::string CodeGenerator::extractLayoutName(const Type* astType) const {
-    if (!astType) return "";
-    const Type* current = astType;
-    while (current) {
+std::string CodeGenerator::extractLayoutName(const Type *astType) const {
+    if (astType == nullptr)
+        return "";
+    const Type *current = astType;
+    while (current != nullptr) {
         if (current->nodeType == NodeType::LAYOUT_TYPE) {
-            const LayoutType* lt = static_cast<const LayoutType*>(current);
+            const auto *lt = static_cast<const LayoutType *>(current);
             std::string layoutName = lt->layoutName;
 
-            // NEW: Resolve to fully-qualified name if a semantic analyzer is available
-            if (semanticAnalyzer) {
+            // NEW: Resolve to fully-qualified name if a semantic analyzer is
+            // available
+            if (semanticAnalyzer != nullptr) {
                 // First try regular lookup (takes current scope into account)
-                Symbol* sym = semanticAnalyzer->getSymbolTable().findSymbol(layoutName);
-                if (!sym) {
+                Symbol *sym =
+                    semanticAnalyzer->getSymbolTable().findSymbol(layoutName);
+                if (sym == nullptr) {
                     // If that fails, try treating the provided name as an FQDN
-                    sym = semanticAnalyzer->getSymbolTable().findSymbolByFQDN(layoutName);
+                    sym = semanticAnalyzer->getSymbolTable().findSymbolByFQDN(
+                        layoutName);
                 }
-                if (sym && sym->symbolKind == SymbolKind::LAYOUT) {
+                if ((sym != nullptr) && sym->symbolKind == SymbolKind::LAYOUT) {
                     layoutName = sym->fqdn; // Use canonical FQDN
                 }
             }
             return layoutName;
         }
         if (current->nodeType == NodeType::POINTER_TYPE) {
-            const PointerType* pt = static_cast<const PointerType*>(current);
+            const auto *pt = static_cast<const PointerType *>(current);
             current = pt->pointsTo.get();
             continue;
         }
@@ -1107,80 +1213,79 @@ std::string CodeGenerator::extractLayoutName(const Type* astType) const {
 // Control Flow Methods (Stubs)
 // ============================================================================
 
-void CodeGenerator::generateIfStatement(const IfStatement* ifStmt) {
+void CodeGenerator::generateIfStatement(const IfStatement *ifStmt) {
     emitComment("If statement");
-    
+
     // Generate labels
     std::string elseLabel = labelGenerator.generateLabel("else");
     std::string endLabel = labelGenerator.generateLabel("endif");
-    
+
     // Generate condition
     generateExpression(ifStmt->condition.get());
-    
+
     // Pop condition result to register and compare with 0
     popFromStack("Get condition result");
 
     emit("a1 := 0");
-    emit("if a0 == a1 then goto " + elseLabel + " // Jump to else if condition is false");
-    
+    emit("if a0 == a1 then goto " + elseLabel +
+         " // Jump to else if condition is false");
+
     // Generate then branch
     generateStatement(ifStmt->thenStatement.get());
     emit("goto " + endLabel + " // Jump to end");
-    
+
     // Generate else branch
     emitLabel(elseLabel);
     if (ifStmt->elseStatement) {
         generateStatement(ifStmt->elseStatement.get());
     }
-    
+
     emitLabel(endLabel);
     emit("");
 }
 
-void CodeGenerator::generateWhileStatement(const WhileStatement* whileStmt) {
+void CodeGenerator::generateWhileStatement(const WhileStatement *whileStmt) {
     emitComment("While statement");
-    
+
     // Generate labels
     std::string loopLabel = labelGenerator.generateLabel("loop");
     std::string endLabel = labelGenerator.generateLabel("endloop");
-    
+
     // Add break/continue labels for nested loops
     breakLabels.push_back(endLabel);
     continueLabels.push_back(loopLabel);
-    
 
-    
     // Loop start
     emitLabel(loopLabel);
-    
+
     // Generate condition
     generateExpression(whileStmt->condition.get());
-    
+
     // Pop condition result to register and compare with 0
     popFromStack("Get condition result");
     emit("a1 := 0");
-    emit("if a0 == a1 then goto " + endLabel + " // Jump to end if condition is false");
-    
+    emit("if a0 == a1 then goto " + endLabel +
+         " // Jump to end if condition is false");
+
     // Generate loop body
     generateStatement(whileStmt->body.get());
-    
-    
+
     // Jump back to loop start
     emit("goto " + loopLabel + " // Jump back to loop start");
-    
+
     // Loop end
     emitLabel(endLabel);
-    
+
     // Remove break/continue labels
     breakLabels.pop_back();
     continueLabels.pop_back();
-    
+
     emit("");
 }
 
-void CodeGenerator::generateReturnStatement(const ReturnStatement* retStmt) {
+void CodeGenerator::generateReturnStatement(const ReturnStatement *retStmt) {
     emitComment("Return statement");
-    
+
     if (retStmt->value) {
         // Generate return value
         generateExpression(retStmt->value.get());
@@ -1190,119 +1295,136 @@ void CodeGenerator::generateReturnStatement(const ReturnStatement* retStmt) {
         emit("a0 := 0");
         pushToStack("Default return value");
     }
-    
+
     emit("return // Return from function");
 }
 
-void CodeGenerator::generateFunctionDeclaration(const FunctionDeclaration* funcDecl) {
+void CodeGenerator::generateFunctionDeclaration(
+    const FunctionDeclaration *funcDecl) {
     emitComment("Function declaration: " + funcDecl->name);
-    
+
     // Save current function context
     std::string oldFunction = currentFunction;
     currentFunction = funcDecl->name;
-    
+
     // Store parameter count for later use
     functionParameterCounts[funcDecl->name] = funcDecl->parameters.size();
-    
+
     // Generate function label
     emit("");
-    
+
     // Check if we're in a namespace scope by looking up the function's symbol
     std::string functionLabel = funcDecl->name;
-    if (semanticAnalyzer) {
-        Symbol* symbol = semanticAnalyzer->getSymbolTable().findSymbol(funcDecl->name);
-        if (symbol) {
+    if (semanticAnalyzer != nullptr) {
+        Symbol *symbol =
+            semanticAnalyzer->getSymbolTable().findSymbol(funcDecl->name);
+        if (symbol != nullptr) {
             functionLabel = symbol->fqdn;
         }
     } else {
-        std::cout << "Warning: No semantic analyzer available, using raw function name." << std::endl;
+        std::cout << "Warning: No semantic analyzer available, using raw "
+                     "function name."
+                  << '\n';
     }
-    
+
     emitLabel(functionLabel);
-    
-    // Reset stack depth for new function - we'll track it locally
+
+    // Reset stack depth for new function - we'll track iter locally
     stackDepth = funcDecl->parameters.size();
-    emitComment("DEBUG: Function " + funcDecl->name + " starts with stack depth: " + std::to_string(stackDepth));
-    
+    emitComment("DEBUG: Function " + funcDecl->name +
+                " starts with stack depth: " + std::to_string(stackDepth));
+
     // Push new scope for function parameters and local variables
-    if (semanticAnalyzer) semanticAnalyzer->getSymbolTable().pushScope("function_" + funcDecl->name);
+    if (semanticAnalyzer != nullptr)
+        semanticAnalyzer->getSymbolTable().pushScope("function_" +
+                                                     funcDecl->name);
     memoryManager.pushScope("function_" + funcDecl->name);
-    
+
     // Save current variable type tracking and start fresh for this function
-    std::unordered_map<std::string, std::string> oldVariableLayoutTypes = variableLayoutTypes;
+    std::unordered_map<std::string, std::string> oldVariableLayoutTypes =
+        variableLayoutTypes;
     variableLayoutTypes.clear();
-    
+
     // Allocate memory for parameters (they come from stack)
-    for (int i = 0; i < funcDecl->parameters.size(); i++) {
-        const auto& param = funcDecl->parameters[i];
+    for (const auto &param : funcDecl->parameters) {
         std::string paramFQDN = getVariableFQDN(param->name);
         std::string paramLayout = extractLayoutName(param->type.get());
         if (!paramLayout.empty()) {
             trackVariableLayout(paramFQDN, paramLayout);
         }
-        
+
         int address = memoryManager.allocateMemory(paramFQDN);
 
         popFromStack("Get parameter " + param->name);
-        emit("p(" + std::to_string(address) + ") := a0 // Store parameter " + param->name);
-        emitComment("DEBUG: Parameter " + param->name + " stored at address " + std::to_string(address));
+        emit("p(" + std::to_string(address) + ") := a0 // Store parameter " +
+             param->name);
+        emitComment("DEBUG: Parameter " + param->name + " stored at address " +
+                    std::to_string(address));
     }
-    
+
     // Generate function body
     generateStatement(funcDecl->body.get());
-    
+
     // Note: Functions should have explicit return statements
-    // If no explicit return is found, the assembler will handle it
+    // If no explicit return is found, the assembler will handle iter
     emitComment("Function " + funcDecl->name + " ends without explicit return");
-    
+
     // Restore previous context
     currentFunction = oldFunction;
     variableLayoutTypes = oldVariableLayoutTypes;
-    
+
     // Pop function scope
     memoryManager.popScope();
-    if (semanticAnalyzer) semanticAnalyzer->getSymbolTable().popScope();
+    if (semanticAnalyzer != nullptr)
+        semanticAnalyzer->getSymbolTable().popScope();
 }
 
-void CodeGenerator::generateBlockStatement(const BlockStatement* blockStmt) {
+void CodeGenerator::generateBlockStatement(const BlockStatement *blockStmt) {
     // Push new scope
-    if (semanticAnalyzer) semanticAnalyzer->getSymbolTable().pushScope("block");
-    memoryManager.pushScope("block_" + std::to_string(blockStmt->line) + "_" + std::to_string(blockStmt->column));
-    
+    if (semanticAnalyzer != nullptr)
+        semanticAnalyzer->getSymbolTable().pushScope("block");
+    memoryManager.pushScope("block_" + std::to_string(blockStmt->line) + "_" +
+                            std::to_string(blockStmt->column));
+
     // Generate code for each statement in the block
-    for (const auto& statement : blockStmt->statements) {
+    for (const auto &statement : blockStmt->statements) {
         generateStatement(statement.get());
     }
-    
+
     // Pop scope
     memoryManager.popScope();
-    if (semanticAnalyzer) semanticAnalyzer->getSymbolTable().popScope();
+    if (semanticAnalyzer != nullptr)
+        semanticAnalyzer->getSymbolTable().popScope();
 }
 
-void CodeGenerator::generateComparison(TokenType op, const std::string& trueLabel, const std::string& falseLabel) {
+void CodeGenerator::generateComparison(TokenType op,
+                                       const std::string &trueLabel,
+                                       const std::string &falseLabel) {
     // Generate conditional jump based on comparison operator
     switch (op) {
-        case TokenType::EQUAL:
-            emit("if a0 == a1 then goto " + trueLabel + " // Jump if equal");
-            break;
-        case TokenType::NOT_EQUAL:
-            emit("if a0 != a1 then goto " + trueLabel + " // Jump if not equal");
-            break;
-        case TokenType::LESS_THAN:
-            emit("if a0 < a1 then goto " + trueLabel + " // Jump if less than");
-            break;
-        case TokenType::LESS_EQUAL:
-            emit("if a0 <= a1 then goto " + trueLabel + " // Jump if less than or equal");
-            break;
-        case TokenType::GREATER_THAN:
-            emit("if a0 > a1 then goto " + trueLabel + " // Jump if greater than");
-            break;
-        case TokenType::GREATER_EQUAL:
-            emit("if a0 >= a1 then goto " + trueLabel + " // Jump if greater than or equal");
-            break;
-        default:
-            emitComment("Unknown comparison operator");
-            break;
+    case TokenType::EQUAL:
+        emit("if a0 == a1 then goto " + trueLabel + " // Jump if equal");
+        break;
+    case TokenType::NOT_EQUAL:
+        emit("if a0 != a1 then goto " + trueLabel + " // Jump if not equal");
+        break;
+    case TokenType::LESS_THAN:
+        emit("if a0 < a1 then goto " + trueLabel + " // Jump if less than");
+        break;
+    case TokenType::LESS_EQUAL:
+        emit("if a0 <= a1 then goto " + trueLabel +
+             " // Jump if less than or equal");
+        break;
+    case TokenType::GREATER_THAN:
+        emit("if a0 > a1 then goto " + trueLabel + " // Jump if greater than");
+        break;
+    case TokenType::GREATER_EQUAL:
+        emit("if a0 >= a1 then goto " + trueLabel +
+             " // Jump if greater than or equal");
+        break;
+    default:
+        emitComment("Unknown comparison operator");
+        break;
     }
     emit("goto " + falseLabel + " // Jump to false branch");
 }
@@ -1311,64 +1433,69 @@ void CodeGenerator::generateComparisonResult(TokenType op) {
     // Generate result (1 for true, 0 for false) based on comparison
     std::string trueLabel = labelGenerator.generateLabel("true");
     std::string endLabel = labelGenerator.generateLabel("cmp_end");
-    
+
     switch (op) {
-        case TokenType::EQUAL:
-            emit("if a0 == a1 then goto " + trueLabel + " // Jump if equal");
-            break;
-        case TokenType::NOT_EQUAL:
-            emit("if a0 != a1 then goto " + trueLabel + " // Jump if not equal");
-            break;
-        case TokenType::LESS_THAN:
-            emit("if a0 < a1 then goto " + trueLabel + " // Jump if less than");
-            break;
-        case TokenType::LESS_EQUAL:
-            emit("if a0 <= a1 then goto " + trueLabel + " // Jump if less than or equal");
-            break;
-        case TokenType::GREATER_THAN:
-            emit("if a0 > a1 then goto " + trueLabel + " // Jump if greater than");
-            break;
-        case TokenType::GREATER_EQUAL:
-            emit("if a0 >= a1 then goto " + trueLabel + " // Jump if greater than or equal");
-            break;
-        default:
-            emitComment("Unknown comparison operator");
-            break;
+    case TokenType::EQUAL:
+        emit("if a0 == a1 then goto " + trueLabel + " // Jump if equal");
+        break;
+    case TokenType::NOT_EQUAL:
+        emit("if a0 != a1 then goto " + trueLabel + " // Jump if not equal");
+        break;
+    case TokenType::LESS_THAN:
+        emit("if a0 < a1 then goto " + trueLabel + " // Jump if less than");
+        break;
+    case TokenType::LESS_EQUAL:
+        emit("if a0 <= a1 then goto " + trueLabel +
+             " // Jump if less than or equal");
+        break;
+    case TokenType::GREATER_THAN:
+        emit("if a0 > a1 then goto " + trueLabel + " // Jump if greater than");
+        break;
+    case TokenType::GREATER_EQUAL:
+        emit("if a0 >= a1 then goto " + trueLabel +
+             " // Jump if greater than or equal");
+        break;
+    default:
+        emitComment("Unknown comparison operator");
+        break;
     }
-    
+
     // False case
     emit("a0 := 0 // Comparison result: false");
     emit("goto " + endLabel);
-    
+
     // True case
     emitLabel(trueLabel);
     emit("a0 := 1 // Comparison result: true");
-    
+
     emitLabel(endLabel);
-    
+
     // Push the comparison result onto the stack
     pushToStack(" comparison result");
 }
 
-void CodeGenerator::generateSyscallExpression(const SyscallExpression* syscallExpr) {
+void CodeGenerator::generateSyscallExpression(
+    const SyscallExpression *syscallExpr) {
     emitComment("Syscall expression");
 
     // Generate each argument and assign to registers a0-a6
     for (size_t i = 0; i < syscallExpr->arguments.size(); ++i) {
         generateExpression(syscallExpr->arguments[i].get());
         popFromStack("Get argument " + std::to_string(i));
-        if (i == 0) pushToStack(" syscall number");
+        if (i == 0)
+            pushToStack(" syscall number");
 
-        emit("a" + std::to_string(i) + " := a0 // Store argument " + std::to_string(i) + " in register a" + std::to_string(i));
+        emit("a" + std::to_string(i) + " := a0 // Store argument " +
+             std::to_string(i) + " in register a" + std::to_string(i));
     }
 
     popFromStack("Get syscall number");
 
     // Execute syscall
     emit("syscall // Execute system call");
-    
-    // Syscall result is in a0, push it to stack
+
+    // Syscall result is in a0, push iter to stack
     pushToStack(" syscall result");
 }
 
-} // namespace calpha 
+} // namespace calpha
