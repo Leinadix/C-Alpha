@@ -180,7 +180,7 @@ jobs:
     
     - name: Generate coverage report
       run: |
-        lcov --directory build --capture --output-file coverage.info  --ignore-errors unused
+        lcov --ignore-errors unused --directory build --capture --output-file coverage.info
         lcov --remove coverage.info '/usr/*' --output-file coverage.info
         lcov --remove coverage.info '*/external/*' --output-file coverage.info
         lcov --remove coverage.info '*/tests/*' --output-file coverage.info
