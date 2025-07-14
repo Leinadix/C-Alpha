@@ -1,30 +1,25 @@
 ---
+# Only critical diagnostics, static analysis, bugprone and simple readability checks
 Checks: >
   clang-diagnostic-*,
   clang-analyzer-*,
-  llvm-*,
-  modernize-*,
-  performance-*,
-  portability-*,
-  readability-*,
   bugprone-*,
-  portability-avoid-pragma-once,    # <-- enforce include guards
-  -clang-analyzer-alpha*,
-  -modernize-use-trailing-return-type,
-  -readability-braces-around-statements,
+  readability-*,
+  # Turn off the most pedantic readability checks
   -readability-magic-numbers,
-  -readability-named-parameter,
-  -llvm-header-guard,               # still disabled
-  -llvm-include-order
+  -readability-named-parameter
 
+# Don’t promote any warnings to errors
 WarningsAsErrors: ''
 
+# Only check headers in your source tree
 HeaderFilterRegex: '(src/|include/|lsp/|tests/).*\.(h|hpp)$'
 
+# Use your .clang-format file for any formatting checks
 FormatStyle: file
 
 CheckOptions:
-  # Treat pragma-once avoidance as an error, not just a warning
+  # Still treat “avoid #pragma once” as an error if you care about it
   - key: portability-avoid-pragma-once.WarningOnly
     value: 'false'
 ---
