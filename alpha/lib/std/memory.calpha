@@ -44,7 +44,7 @@ namespace std_Memory {
         ->rawPtr result = ~rawPtr[1];
         result.address = < ->int>(heap);
         
-        ret result;
+        ret <-result;
     };
     
     // Create a new heap node with specified size and address
