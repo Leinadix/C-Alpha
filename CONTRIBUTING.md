@@ -22,8 +22,8 @@ This project adheres to a Code of Conduct that we expect all contributors to fol
 
 ### Prerequisites
 
-- **C++ Compiler**: GCC 10+ or Clang 12+ with C++20 support
-- **CMake**: Version 3.30 or higher
+- **C++ Compiler**: GCC 11+ or Clang 18+ with C++20 support
+- **CMake**: Version 3.20 or higher
 - **Git**: For version control
 - **clang-format**: For code formatting
 - **clang-tidy**: For static analysis
