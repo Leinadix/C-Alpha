@@ -133,7 +133,7 @@ jobs:
     
     - name: Test
       working-directory: ${{ github.workspace }}/build
-      run: ctest --build-config ${{ matrix.build_type }} --parallel --verbose --ignore-errors unused
+      run: ctest --build-config ${{ matrix.build_type }} --parallel --verbose
     
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -180,7 +180,7 @@ jobs:
     
     - name: Generate coverage report
       run: |
-        lcov --directory build --capture --output-file coverage.info
+        lcov --directory build --capture --output-file coverage.info  --ignore-errors unused
         lcov --remove coverage.info '/usr/*' --output-file coverage.info
         lcov --remove coverage.info '*/external/*' --output-file coverage.info
         lcov --remove coverage.info '*/tests/*' --output-file coverage.info
