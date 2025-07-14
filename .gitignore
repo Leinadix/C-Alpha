@@ -1,0 +1,200 @@
+# Build directories
+build/
+build-*/
+cmake-build-*/
+Debug/
+Release/
+RelWithDebInfo/
+MinSizeRel/
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+
+# Build artifacts
+*.exe
+*.out
+*.app
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+*.obj
+*.o
+*.lo
+*.la
+*.al
+*.libs
+*.pdb
+*.ilk
+*.map
+*.exp
+*.manifest
+*.res
+*.rc
+
+# Coverage files
+*.gcda
+*.gcno
+*.gcov
+coverage.info
+coverage/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Documentation
+docs/html/
+docs/latex/
+docs/xml/
+*.dox
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.bak
+*.backup
+*.orig
+*.rej
+*.patch
+
+# Package files
+*.dmg
+*.pkg
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+
+# Node.js (for VS Code extension)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.tgz
+*.tar.gz
+package-lock.json
+
+# OS generated files
+.DS_Store?
+ehthumbs.db
+Icon?
+Thumbs.db
+
+# Compiler specific
+.ninja_deps
+.ninja_log
+build.ninja
+rules.ninja
+
+# Visual Studio
+*.vcxproj
+*.vcxproj.filters
+*.sln
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.VC.db
+*.VC.VC.opendb
+*.ipch
+*.aps
+*.ncb
+*.opensdf
+*.sdf
+*.cachefile
+*.VC.db
+*.VC.VC.opendb
+*.psess
+*.vsp
+*.vspx
+*.sap
+*.e2e
+
+# JetBrains
+.idea/
+*.iws
+*.iml
+*.ipr
+cmake-build-*/
+
+# Code::Blocks
+*.cbp
+*.layout
+*.depend
+
+# CodeLite
+*.codelite_workspace
+
+# Backup files
+*~
+*.swp
+*.bak
+
+# Profiling
+*.prof
+
+# Valgrind
+*.valgrind
+
+# Doxygen
+Doxyfile.bak
+
+# External dependencies (if vendored)
+third_party/
+vendor/
+
+# Local configuration
+local_config.h
+user_config.h
+
+# Generated files
+version.h
+build_info.h
+generated/
+
+# Test results
+test_results.xml
+gtest_output.xml
+
+# Static analysis results
+*.sarif
+analysis_results/
+
+# Packaging
+*.deb
+*.rpm
+*.pkg
+*.msi
+
+# Archive files
+*.tar
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.zip
+*.rar
+*.7z
+
+# Temporary Python files (if any build scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment files
+.env
+.env.local
+.env.*.local
