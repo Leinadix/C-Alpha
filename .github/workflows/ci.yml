@@ -13,6 +13,7 @@ env:
   CTEST_OUTPUT_ON_FAILURE: 1
 
 permissions:
+  contents: write
   pages: write
   id-token: write
 
@@ -155,7 +156,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake ninja-build gcc-11 g++-11 lcov
+        sudo apt-get install -y cmake ninja-build gcc g++ lcov
     
     - name: Configure CMake with coverage
       run: |
@@ -164,9 +165,6 @@ jobs:
               -DCMAKE_C_FLAGS="--coverage" \
               -DCMAKE_EXE_LINKER_FLAGS="--coverage" \
               -DCMAKE_CXX_COMPILER=$CXX
-      env:
-        CC: gcc-11
-        CXX: g++-11
     
     - name: Build
       run: cmake --build build --parallel
