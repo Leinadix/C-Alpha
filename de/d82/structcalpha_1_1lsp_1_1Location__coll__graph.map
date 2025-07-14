@@ -1,0 +1,7 @@
+<map id="calpha::lsp::Location" name="calpha::lsp::Location">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,196,160,221"/>
+<area shape="rect" id="Node000002" href="$d2/de9/structcalpha_1_1lsp_1_1Range.html" title=" " alt="" coords="12,108,153,133"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="85,147,85,195,80,195,80,147"/>
+<area shape="rect" id="Node000003" href="$d3/d42/structcalpha_1_1lsp_1_1Position.html" title=" " alt="" coords="7,5,159,31"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="85,45,85,108,80,108,80,45"/>
+</map>

@@ -1,0 +1,11 @@
+<map id="calpha::Type" name="calpha::Type">
+<area shape="rect" id="Node000001" title=" " alt="" coords="190,79,293,104"/>
+<area shape="rect" id="Node000003" href="$de/d8f/classcalpha_1_1BasicType.html" title=" " alt="" coords="5,152,144,177"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="203,112,103,154,101,149,201,107"/>
+<area shape="rect" id="Node000004" href="$d8/d6b/classcalpha_1_1LayoutType.html" title=" " alt="" coords="168,152,315,177"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="244,118,244,152,239,152,239,118"/>
+<area shape="rect" id="Node000005" href="$de/dfd/classcalpha_1_1PointerType.html" title=" " alt="" coords="339,152,488,177"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="282,107,386,149,384,154,280,112"/>
+<area shape="rect" id="Node000002" href="$d8/d03/classcalpha_1_1ASTNode.html" title=" " alt="" coords="175,5,307,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="244,44,244,79,239,79,239,44"/>
+</map>
