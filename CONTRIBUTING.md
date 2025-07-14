@@ -40,7 +40,7 @@ This project adheres to a Code of Conduct that we expect all contributors to fol
 
 3. **Set up the upstream remote**:
    ```bash
-   git remote add upstream https://github.com/ORIGINAL_OWNER/alpha-c.git
+   git remote add upstream https://github.com/Leinadix/alpha-c.git
    ```
 
 4. **Create a development branch**:

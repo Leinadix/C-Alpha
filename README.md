@@ -1,7 +1,7 @@
 # Alpha-C Compiler
 
-![CI Status](https://github.com/USERNAME/alpha-c/actions/workflows/ci.yml/badge.svg)
-![Coverage](https://codecov.io/gh/USERNAME/alpha-c/branch/main/graph/badge.svg)
+![CI Status](https://github.com/Leinadix/alpha-c/actions/workflows/ci.yml/badge.svg)
+![Coverage](https://codecov.io/gh/Leinadix/alpha-c/branch/main/graph/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
 A modern compiler implementation for the Alpha-C programming language, featuring a complete toolchain with lexical analysis, parsing, semantic analysis, and code generation capabilities.
@@ -33,7 +33,7 @@ A modern compiler implementation for the Alpha-C programming language, featuring
 
 ```bash
 # Clone the repository
-git clone https://github.com/USERNAME/alpha-c.git
+git clone https://github.com/Leinadix/alpha-c.git
 cd alpha-c
 
 # Create build directory
@@ -184,6 +184,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- **Issues**: Report bugs and feature requests on [GitHub Issues](https://github.com/USERNAME/alpha-c/issues)
-- **Discussions**: Join the conversation on [GitHub Discussions](https://github.com/USERNAME/alpha-c/discussions)
-- **Documentation**: Visit the [project wiki](https://github.com/USERNAME/alpha-c/wiki)
+- **Issues**: Report bugs and feature requests on [GitHub Issues](https://github.com/Leinadix/alpha-c/issues)
+- **Discussions**: Join the conversation on [GitHub Discussions](https://github.com/Leinadix/alpha-c/discussions)
+- **Documentation**: Visit the [project wiki](https://github.com/Leinadix/alpha-c/wiki)
