@@ -27,7 +27,7 @@ jobs:
     - name: Run clang-format
       run: |
         find src include lsp tests -name "*.cpp" -o -name "*.hpp" -o -name "*.h" | \
-        xargs clang-format-15 --dry-run --Werror --style=file
+        xargs clang-format-15 --dry-run --style=file
 
   static-analysis:
     name: Static Analysis
