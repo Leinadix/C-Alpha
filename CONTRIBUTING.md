@@ -62,11 +62,11 @@ This project adheres to a Code of Conduct that we expect all contributors to fol
 
 ## Coding Standards
 
-This project follows the [LLVM Coding Standards](https://llvm.org/docs/CodingStandards.html). Here are the key points:
+This project follows the [LLVM Coding Standards](https://llvm.org/docs/CodingStandards.html) but with 4 spaces. Here are the key points:
 
 ### Code Style
 
-- **Indentation**: 2 spaces, no tabs
+- **Indentation**: 4 spaces, no tabs
 - **Line Length**: 80 characters maximum
 - **Naming Conventions**:
   - Classes: `CamelCase`
