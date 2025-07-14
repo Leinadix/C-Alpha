@@ -1,0 +1,300 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+  release:
+    types: [ published ]
+
+env:
+  BUILD_TYPE: Release
+  CTEST_OUTPUT_ON_FAILURE: 1
+
+jobs:
+  format-check:
+    name: Code Format Check
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install clang-format
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-format-15
+    
+    - name: Run clang-format
+      run: |
+        find src include lsp tests -name "*.cpp" -o -name "*.hpp" -o -name "*.h" | \
+        xargs clang-format-15 --dry-run --Werror --style=file
+
+  static-analysis:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-tidy-15 cmake ninja-build
+    
+    - name: Configure CMake
+      run: |
+        cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+              -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    
+    - name: Run clang-tidy
+      run: |
+        clang-tidy-15 --config-file=.clang-tidy \
+        $(find src include lsp -name "*.cpp" -o -name "*.hpp") \
+        -p build/ --warnings-as-errors=*
+
+  build-and-test:
+    name: Build and Test
+    needs: [format-check, static-analysis]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        compiler: [gcc, clang]
+        build_type: [Debug, Release]
+        exclude:
+          - os: windows-latest
+            compiler: gcc
+          - os: macos-latest
+            compiler: gcc
+        include:
+          - os: windows-latest
+            compiler: msvc
+            build_type: Debug
+          - os: windows-latest
+            compiler: msvc
+            build_type: Release
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build
+        if [ "${{ matrix.compiler }}" == "clang" ]; then
+          sudo apt-get install -y clang-15
+          echo "CC=clang-15" >> $GITHUB_ENV
+          echo "CXX=clang++-15" >> $GITHUB_ENV
+        else
+          sudo apt-get install -y gcc-11 g++-11
+          echo "CC=gcc-11" >> $GITHUB_ENV
+          echo "CXX=g++-11" >> $GITHUB_ENV
+        fi
+    
+    - name: Install dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install cmake ninja
+        if [ "${{ matrix.compiler }}" == "clang" ]; then
+          echo "CC=clang" >> $GITHUB_ENV
+          echo "CXX=clang++" >> $GITHUB_ENV
+        fi
+    
+    - name: Setup MSVC (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: ilammy/msvc-dev-cmd@v1
+    
+    - name: Configure CMake
+      run: |
+        cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+              -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    
+    - name: Build
+      run: cmake --build build --config ${{ matrix.build_type }} --parallel
+    
+    - name: Test
+      working-directory: ${{ github.workspace }}/build
+      run: ctest --build-config ${{ matrix.build_type }} --parallel --verbose
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      if: matrix.build_type == 'Release'
+      with:
+        name: alpha-c-${{ matrix.os }}-${{ matrix.compiler }}
+        path: |
+          build/alpha_c*
+          build/alpha_lsp*
+          !build/**/*.pdb
+          !build/**/*.ilk
+
+  coverage:
+    name: Code Coverage
+    needs: [format-check, static-analysis]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build gcc-11 g++-11 lcov
+    
+    - name: Configure CMake with coverage
+      run: |
+        cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug \
+              -DCMAKE_CXX_FLAGS="--coverage" \
+              -DCMAKE_C_FLAGS="--coverage" \
+              -DCMAKE_EXE_LINKER_FLAGS="--coverage"
+      env:
+        CC: gcc-11
+        CXX: g++-11
+    
+    - name: Build
+      run: cmake --build build --parallel
+    
+    - name: Test
+      working-directory: ${{ github.workspace }}/build
+      run: ctest --parallel --verbose
+    
+    - name: Generate coverage report
+      run: |
+        lcov --directory build --capture --output-file coverage.info
+        lcov --remove coverage.info '/usr/*' --output-file coverage.info
+        lcov --remove coverage.info '*/external/*' --output-file coverage.info
+        lcov --remove coverage.info '*/tests/*' --output-file coverage.info
+        lcov --list coverage.info
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.info
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: true
+
+  documentation:
+    name: Generate Documentation
+    needs: [format-check, static-analysis]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y doxygen graphviz
+    
+    - name: Generate documentation
+      run: |
+        doxygen Doxyfile
+    
+    - name: Upload documentation
+      uses: actions/upload-artifact@v4
+      with:
+        name: documentation
+        path: docs/html/
+    
+    - name: Deploy to GitHub Pages
+      if: github.ref == 'refs/heads/main'
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./docs/html
+
+  release:
+    name: Create Release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build-and-test, coverage, documentation]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Read version
+      id: version
+      run: |
+        VERSION=$(cat VERSION)
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+    
+    - name: Check if tag exists
+      id: check_tag
+      run: |
+        if git rev-parse "refs/tags/v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Download build artifacts
+      if: steps.check_tag.outputs.exists == 'false'
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts/
+    
+    - name: Create Release
+      if: steps.check_tag.outputs.exists == 'false'
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.version.outputs.tag }}
+        release_name: Release ${{ steps.version.outputs.version }}
+        body: |
+          ## Changes
+          
+          This release includes the latest changes from the main branch.
+          
+          ## Downloads
+          
+          - **Linux**: alpha-c-ubuntu-latest-gcc, alpha-c-ubuntu-latest-clang
+          - **macOS**: alpha-c-macos-latest-clang
+          - **Windows**: alpha-c-windows-latest-msvc
+          
+          ## Documentation
+          
+          Full API documentation is available at: https://Leinadix.github.io/alpha-c/
+        draft: false
+        prerelease: false
+    
+    - name: Upload Release Assets
+      if: steps.check_tag.outputs.exists == 'false'
+      run: |
+        for artifact in artifacts/alpha-c-*; do
+          if [ -d "$artifact" ]; then
+            cd "$artifact"
+            zip -r "../$(basename "$artifact").zip" .
+            cd ..
+            gh release upload "${{ steps.version.outputs.tag }}" "$(basename "$artifact").zip"
+          fi
+        done
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        languages: cpp
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: 'trivy-results.sarif'
