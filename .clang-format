@@ -31,14 +31,3 @@ SpacesInSquareBrackets: false
 Standard: c++20
 SortIncludes: true
 SortUsingDeclarations: true
-IncludeBlocks: Preserve
-IncludeCategories:
-  - Regex:           '^<ext/.*\.h>'
-    Priority:        2
-  - Regex:           '^<.*\.h>'
-    Priority:        1
-  - Regex:           '^<.*'
-    Priority:        2
-  - Regex:           '.*'
-    Priority:        3
-...

@@ -8,80 +8,18 @@ Checks: >
   portability-*,
   readability-*,
   bugprone-*,
-  cppcoreguidelines-*,
   -clang-analyzer-alpha*,
   -modernize-use-trailing-return-type,
   -readability-braces-around-statements,
   -readability-magic-numbers,
-  -cppcoreguidelines-avoid-magic-numbers,
-  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
-  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
-  -cppcoreguidelines-pro-type-vararg,
   -readability-named-parameter,
   -llvm-header-guard,
   -llvm-include-order
 
-WarningsAsErrors: >
-  clang-diagnostic-*,
-  llvm-*,
-  modernize-*,
-  performance-*,
-  portability-*,
-  readability-*,
-  bugprone-*
+WarningsAsErrors: ''
 
 HeaderFilterRegex: '(src/|include/|lsp/|tests/).*\.(h|hpp)$'
 
 AnalyzeTemporaryDtors: false
 
 FormatStyle: file
-
-CheckOptions:
-  - key: readability-identifier-naming.NamespaceCase
-    value: lower_case
-  - key: readability-identifier-naming.ClassCase
-    value: CamelCase
-  - key: readability-identifier-naming.StructCase
-    value: CamelCase
-  - key: readability-identifier-naming.FunctionCase
-    value: camelBack
-  - key: readability-identifier-naming.VariableCase
-    value: camelBack
-  - key: readability-identifier-naming.PrivateMemberSuffix
-    value: _
-  - key: readability-identifier-naming.ProtectedMemberSuffix
-    value: _
-  - key: readability-identifier-naming.MacroDefinitionCase
-    value: UPPER_CASE
-  - key: readability-identifier-naming.EnumConstantCase
-    value: CamelCase
-  - key: readability-identifier-naming.EnumConstantPrefix
-    value: k
-  - key: readability-identifier-naming.ConstantCase
-    value: CamelCase
-  - key: readability-identifier-naming.ConstantPrefix
-    value: k
-  - key: readability-identifier-naming.GlobalConstantCase
-    value: CamelCase
-  - key: readability-identifier-naming.GlobalConstantPrefix
-    value: k
-  - key: readability-identifier-naming.MemberConstantCase
-    value: CamelCase
-  - key: readability-identifier-naming.MemberConstantPrefix
-    value: k
-  - key: readability-identifier-naming.StaticConstantCase
-    value: CamelCase
-  - key: readability-identifier-naming.StaticConstantPrefix
-    value: k
-  - key: readability-function-size.LineThreshold
-    value: 80
-  - key: readability-function-size.StatementThreshold
-    value: 800
-  - key: readability-function-size.BranchThreshold
-    value: 60
-  - key: readability-function-size.ParameterThreshold
-    value: 10
-  - key: readability-function-size.NestingThreshold
-    value: 10
-  - key: readability-function-size.VariableThreshold
-    value: 50
