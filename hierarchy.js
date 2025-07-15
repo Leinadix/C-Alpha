@@ -7,6 +7,7 @@ var hierarchy =
         [ "calpha::BinaryExpression", "d9/d4a/classcalpha_1_1BinaryExpression.html", null ],
         [ "calpha::FunctionCall", "d4/dec/classcalpha_1_1FunctionCall.html", null ],
         [ "calpha::Identifier", "df/d04/classcalpha_1_1Identifier.html", null ],
+        [ "calpha::LayoutInitialization", "d3/d93/classcalpha_1_1LayoutInitialization.html", null ],
         [ "calpha::Literal", "dc/d39/classcalpha_1_1Literal.html", null ],
         [ "calpha::MemberAccess", "df/d3f/classcalpha_1_1MemberAccess.html", null ],
         [ "calpha::NamespaceAccess", "dd/dfc/classcalpha_1_1NamespaceAccess.html", null ],

@@ -32,6 +32,7 @@ var annotated_dup =
       [ "ImportStatement", "d7/d48/classcalpha_1_1ImportStatement.html", null ],
       [ "LabelGenerator", "d7/d85/classcalpha_1_1LabelGenerator.html", null ],
       [ "LayoutDeclaration", "d6/dbc/classcalpha_1_1LayoutDeclaration.html", null ],
+      [ "LayoutInitialization", "d3/d93/classcalpha_1_1LayoutInitialization.html", null ],
       [ "LayoutMember", "d5/d96/classcalpha_1_1LayoutMember.html", null ],
       [ "LayoutSemanticType", "d5/d97/classcalpha_1_1LayoutSemanticType.html", "d5/d97/classcalpha_1_1LayoutSemanticType" ],
       [ "LayoutType", "d8/d6b/classcalpha_1_1LayoutType.html", null ],
