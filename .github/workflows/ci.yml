@@ -271,7 +271,7 @@ jobs:
           
           ## Documentation
           
-          Full API documentation is available at: https://Leinadix.github.io/alpha-c/"
+          Full API documentation is available at: https://Leinadix.github.io/Alpha-C/"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     

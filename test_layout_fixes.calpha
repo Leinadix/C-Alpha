@@ -1,0 +1,17 @@
+layout Tuple2 {
+    int left;
+    int right;
+};
+
+fn int main() {
+    // Test 1: Direct layout initialization (new syntax)
+    Tuple2 instance = { 65, 106 };
+    
+    // Test 2: Array allocation with proper layout size awareness
+    ->Tuple2 B = ~Tuple2[1];
+    B.left = 65;
+    B.right = 106;
+    
+    // Should return 65 in both cases
+    ret instance.left;
+}; 

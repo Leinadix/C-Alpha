@@ -43,7 +43,8 @@ enum class NodeType {
     TYPE_CAST,
     NAMESPACE_DECLARATION, // Add namespace declaration node type
     NAMESPACE_ACCESS,      // Add namespace access node type
-    IMPORT_STATEMENT       // Add import statement node type
+    IMPORT_STATEMENT,      // Add import statement node type
+    LAYOUT_INITIALIZATION  // Add layout initialization expression
 };
 
 // Base AST Node
@@ -328,6 +329,27 @@ class SyscallExpression final : public Expression {
     }
 };
 
+class LayoutInitialization final : public Expression {
+  public:
+    std::vector<std::unique_ptr<Expression>> values;
+
+    LayoutInitialization(std::vector<std::unique_ptr<Expression>> values, const int line,
+                        const int column)
+        : Expression(NodeType::LAYOUT_INITIALIZATION, line, column),
+          values(std::move(values)) {
+    }
+
+    [[nodiscard]] std::string toString() const override {
+        std::string result = "{";
+        for (size_t i = 0; i < values.size(); ++i) {
+            if (i > 0)
+                result += ", ";
+            result += values[i]->toString();
+        }
+        return result + "}";
+    }
+};
+
 class TypeCast final : public Expression {
   public:
     std::unique_ptr<Type> targetType;
@@ -602,6 +624,7 @@ class Parser {
     std::unique_ptr<Expression> parseArrayAllocation();
     std::unique_ptr<Expression>
     parseArrayAccess(std::unique_ptr<Expression> array);
+    std::unique_ptr<Expression> parseLayoutInitialization();
 
     // Helper function to format error messages with line content and ANSI
     // colors

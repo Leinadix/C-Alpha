@@ -1,18 +1,14 @@
-namespace Test {
-    layout Tuple2 {
-        int left;
-        int right;
-    };
+layout C {
+    int value;
+    ->C ptr;
 };
 
-fn int test2() {
-        ->Test.Tuple2 B = ~Test.Tuple2[0];
-        B.left = 65;
-        B.right = 106;
 
-        ret B.right;
-    };
+fn int main (){
+    C c = {1, < ->C>(0)};
+    ->C other = {2, 0};
 
-fn int main() {
-    ret test2();
+    c.ptr = other;
+
+    ret (<-c.ptr).value;
 };

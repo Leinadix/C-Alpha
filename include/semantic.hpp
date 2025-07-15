@@ -386,6 +386,7 @@ class SymbolTable {
     // Scopes that have been closed but kept for debug/inspection purposes
     std::vector<std::unique_ptr<Scope>> archivedScopes;
 
+  public:
     [[nodiscard]] std::string buildFQDN(const std::string &name) const {
         if (scopes.empty())
             return "global::" + name;
@@ -398,8 +399,6 @@ class SymbolTable {
         }
         return fqdn + "::" + name;
     }
-
-  public:
     SymbolTable() {
         pushScope("global");
     }
@@ -548,6 +547,8 @@ class SemanticAnalyzer {
     std::unique_ptr<SemanticType>
     visitSyscallExpression(const SyscallExpression *syscallExpr);
     std::unique_ptr<SemanticType> visitTypeCast(const TypeCast *typeCast);
+    std::unique_ptr<SemanticType>
+    visitLayoutInitialization(const LayoutInitialization *layoutInit);
 
   public:
     SemanticAnalyzer() = default;

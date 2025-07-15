@@ -41,6 +41,9 @@ class MemoryManager {
 
     // Scope stack for variable management using FQDNs
     std::vector<std::unordered_map<std::string, int>> scopeStack;
+    
+    // Track the memory high-water mark for each scope
+    std::vector<int> scopeMemoryStart;
 
     // Layout member offsets (global)
     std::unordered_map<std::string, std::unordered_map<std::string, int>>
@@ -66,6 +69,7 @@ class MemoryManager {
         // Start at address 1 (0 might be reserved)
         // Create global scope
         scopeStack.emplace_back();
+        scopeMemoryStart.push_back(nextMemoryAddress);
         currentScopePath.emplace_back("global");
     }
 
@@ -76,6 +80,7 @@ class MemoryManager {
     // Scope management
     void pushScope(const std::string &scopeName) {
         scopeStack.emplace_back();
+        scopeMemoryStart.push_back(nextMemoryAddress);
         currentScopePath.push_back(scopeName);
     }
 
@@ -83,6 +88,13 @@ class MemoryManager {
         if (scopeStack.size() <= 1) {
             throw std::runtime_error("Cannot pop global scope");
         }
+        
+        // Reset memory to where this scope started (reclaim scope's memory)
+        if (!scopeMemoryStart.empty()) {
+            nextMemoryAddress = scopeMemoryStart.back();
+            scopeMemoryStart.pop_back();
+        }
+        
         scopeStack.pop_back();
         currentScopePath.pop_back();
     }
@@ -155,10 +167,12 @@ class MemoryManager {
     void clearAll() {
         nextMemoryAddress = 1;
         scopeStack.clear();
+        scopeMemoryStart.clear();
         layoutMemberOffsets.clear();
         currentScopePath.clear();
         // Reinitialize global scope
         scopeStack.emplace_back();
+        scopeMemoryStart.push_back(nextMemoryAddress);
         currentScopePath.emplace_back("global");
     }
 };
@@ -243,6 +257,7 @@ class CodeGenerator {
     void generateSyscallExpression(const SyscallExpression *syscallExpr);
     void generateArrayAllocation(const ArrayAllocation *arrayAlloc);
     void generateTypeCast(const TypeCast *typeCast);
+    void generateLayoutInitialization(const LayoutInitialization *layoutInit);
 
     // Statement generation
     void generateStatement(const Statement *stmt);

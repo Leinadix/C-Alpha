@@ -60,7 +60,7 @@ namespace std_Memory {
         ->rawPtr result = ~rawPtr[1];
         result.address = < ->int>(node);
         
-        ret result;
+        ret <-result;
     };
     
     // Helper function to swap two heap nodes (for heap property maintenance)
@@ -83,7 +83,7 @@ namespace std_Memory {
     // Heapify up to maintain maxheap property
     fn int HeapifyUp(->HeapNode node) {
         while (node.parent != < ->HeapNode>(0)) {
-            if (node.size <= node.parent.size) {
+            if ((<-node).size <= (<-((<-node).parent)).size) {
                 ret 0;  // Heap property satisfied
             }
             SwapNodes(node, node.parent);
@@ -98,13 +98,13 @@ namespace std_Memory {
             ->HeapNode largest = node;
             
             if (node.left != < ->HeapNode>(0)) {
-                if (node.left.size > largest.size) {
+                if ((<-(node.left)).size > largest.size) {
                     largest = node.left;
                 }
             }
             
             if (node.right != < ->HeapNode>(0)) {
-                if (node.right.size > largest.size) {
+                if ((<-(node.right)).size > largest.size) {
                     largest = node.right;
                 }
             }
@@ -191,9 +191,9 @@ namespace std_Memory {
         // Navigate to last node
         while (level > 1) {
             if (level % 2 == 0) {
-                last = last.parent.left;
+                last = (<-(last.parent)).left;
             } else {
-                last = last.parent.right;
+                last = (<-(last.parent)).right;
             }
             level = level / 2;
         }
@@ -202,29 +202,16 @@ namespace std_Memory {
         SwapNodes(node, last);
         
         // Remove last node
-        if (last.parent.left == last) {
-            last.parent.left = < ->HeapNode>(0);
+        if ((<-(last.parent)).left == last) {
+            (<-(last.parent)).left = < ->HeapNode>(0);
         } else {
-            last.parent.right = < ->HeapNode>(0);
+            (<-(last.parent)).right = < ->HeapNode>(0);
         }
         
         heap.size = heap.size - 1;
         HeapifyDown(node);
         
         ret 0;
-    };
-    
-    // Search for a node in the heap
-    fn int SearchHeap(rawPtr node_ptr, rawPtr heap_ptr) {
-        ->Heap heap = < ->Heap>(heap_ptr.address);
-        ->HeapNode target = < ->HeapNode>(node_ptr.address);
-        
-        if (heap.size == 0) {
-            ret -1;  // Not found
-        }
-        
-        // Simple recursive search (could be optimized)
-        ret SearchHeapRecursive(heap.root, target);
     };
     
     // Helper function for recursive search
@@ -237,69 +224,33 @@ namespace std_Memory {
             ret 0;  // Found
         }
         
-        int left_result = SearchHeapRecursive(current.left, target);
+        int left_result = SearchHeapRecursive((<-(current)).left, target);
         if (left_result == 0) {
             ret 0;  // Found in left subtree
         }
         
-        int right_result = SearchHeapRecursive(current.right, target);
+        int right_result = SearchHeapRecursive((<-(current)).right, target);
         if (right_result == 0) {
             ret 0;  // Found in right subtree
         }
         
         ret -1;  // Not found
     };
-    
-    // Allocate dynamic memory
-    fn rawPtr dynalloc(int size, rawPtr heap_ptr) {
+
+    // Search for a node in the heap
+    fn int SearchHeap(rawPtr node_ptr, rawPtr heap_ptr) {
         ->Heap heap = < ->Heap>(heap_ptr.address);
+        ->HeapNode target = < ->HeapNode>(node_ptr.address);
         
-        // Find the best fit free block (largest free block that fits)
-        ->HeapNode best_fit = FindBestFit(heap.root, size);
-        
-        if (best_fit != < ->HeapNode>(0)) {
-            // Use existing free block
-            best_fit.is_free = 0;
-            
-            // If block is larger than needed, split it
-            if (best_fit.size > size + 64) {  // Minimum split size
-                ->int split_addr = < ->int>(< int>(best_fit.address) + size);
-                int remaining_size = best_fit.size - size;
-                
-                // Create new node for remaining space
-                rawPtr remaining_node = CreateHeapNode(remaining_size, split_addr);
-                InsertHeap(remaining_node, heap_ptr);
-                
-                // Update current node size
-                best_fit.size = size;
-            }
-            
-            ->rawPtr result = ~rawPtr[1];
-            result.address = best_fit.address;
-            ret result;
+        if (heap.size == 0) {
+            ret -1;  // Not found
         }
         
-        // No suitable free block found, allocate new memory
-        ->int new_address = heap.next_free;
-        heap.next_free = < ->int>(< int>(heap.next_free) + size);
-        
-        // Check if we exceed heap bounds
-        if (< int>(heap.next_free) > < int>(heap.heap_end)) {
-            ret < rawPtr>(0);  // Out of memory
-        }
-        
-        // Create new node for allocated memory
-        rawPtr new_node = CreateHeapNode(size, new_address);
-        ->HeapNode node = < ->HeapNode>(new_node.address);
-        node.is_free = 0;
-        InsertHeap(new_node, heap_ptr);
-        
-        ->rawPtr result = ~rawPtr[1];
-        result.address = new_address;
-        ret result;
+        // Simple recursive search (could be optimized)
+        ret SearchHeapRecursive(heap.root, target);
     };
-    
-    // Helper function to find best fit free block
+
+        // Helper function to find best fit free block
     fn ->HeapNode FindBestFit(->HeapNode node, int size) {
         if (node == < ->HeapNode>(0)) {
             ret < ->HeapNode>(0);
@@ -341,31 +292,57 @@ namespace std_Memory {
         ret best;
     };
     
-    // Free dynamic memory
-    fn int dynfree(rawPtr object, rawPtr heap_ptr) {
+    
+    // Allocate dynamic memory
+    fn rawPtr dynalloc(int size, rawPtr heap_ptr) {
         ->Heap heap = < ->Heap>(heap_ptr.address);
         
-        // Find the node corresponding to this memory address
-        ->HeapNode target = FindNodeByAddress(heap.root, object.address);
+        // Find the best fit free block (largest free block that fits)
+        ->HeapNode best_fit = FindBestFit(heap.root, size);
         
-        if (target == < ->HeapNode>(0)) {
-            ret -1;  // Address not found
+        if (best_fit != < ->HeapNode>(0)) {
+            // Use existing free block
+            best_fit.is_free = 0;
+            
+            // If block is larger than needed, split it
+            if (best_fit.size > size + 64) {  // Minimum split size
+                ->int split_addr = < ->int>(< int>(best_fit.address) + size);
+                int remaining_size = best_fit.size - size;
+                
+                // Create new node for remaining space
+                rawPtr remaining_node = CreateHeapNode(remaining_size, split_addr);
+                InsertHeap(remaining_node, heap_ptr);
+                
+                // Update current node size
+                best_fit.size = size;
+            }
+            
+            ->rawPtr result = ~rawPtr[1];
+            result.address = best_fit.address;
+            ret (<-result);
         }
         
-        if (target.is_free == 1) {
-            ret -1;  // Already freed
+        // No suitable free block found, allocate new memory
+        ->int new_address = heap.next_free;
+        heap.next_free = < ->int>(< int>(heap.next_free) + size);
+        
+        // Check if we exceed heap bounds
+        if (< int>(heap.next_free) > < int>(heap.heap_end)) {
+            ret < rawPtr>(0);  // Out of memory
         }
         
-        // Mark as free
-        target.is_free = 1;
+        // Create new node for allocated memory
+        rawPtr new_node = CreateHeapNode(size, new_address);
+        ->HeapNode node = < ->HeapNode>(new_node.address);
+        node.is_free = 0;
+        InsertHeap(new_node, heap_ptr);
         
-        // Try to coalesce with adjacent free blocks
-        CoalesceBlocks(heap, target);
-        
-        ret 0;
+        ->rawPtr result = {< ->int>(0)};
+        result.address = new_address;
+        ret (<-result);
     };
     
-    // Helper function to find node by address
+        // Helper function to find node by address
     fn ->HeapNode FindNodeByAddress(->HeapNode node, ->int address) {
         if (node == < ->HeapNode>(0)) {
             ret < ->HeapNode>(0);
@@ -383,36 +360,8 @@ namespace std_Memory {
         ->HeapNode right_result = FindNodeByAddress(node.right, address);
         ret right_result;
     };
-    
-    // Helper function to coalesce adjacent free blocks
-    fn int CoalesceBlocks(->Heap heap, ->HeapNode node) {
-        // Simple coalescing - find adjacent blocks and merge them
-        // This is a simplified version - real implementation would be more complex
-        
-        ->HeapNode adjacent = FindAdjacentBlock(heap.root, node);
-        if (adjacent != < ->HeapNode>(0)) {
-            if (adjacent.is_free == 1) {
-                // Merge blocks
-                if (< int>(node.address) < < int>(adjacent.address)) {
-                    // Current block comes first
-                    node.size = node.size + adjacent.size;
-                    rawPtr adjacent_ptr = ~rawPtr[1];
-                    adjacent_ptr.address = < ->int>(adjacent);
-                    RemoveHeap(adjacent_ptr, ~rawPtr[1]);
-                } else {
-                    // Adjacent block comes first
-                    adjacent.size = adjacent.size + node.size;
-                    rawPtr node_ptr = ~rawPtr[1];
-                    node_ptr.address = < ->int>(node);
-                    RemoveHeap(node_ptr, ~rawPtr[1]);
-                }
-            }
-        }
-        
-        ret 0;
-    };
-    
-    // Helper function to find adjacent block
+
+        // Helper function to find adjacent block
     fn ->HeapNode FindAdjacentBlock(->HeapNode node, ->HeapNode target) {
         if (node == < ->HeapNode>(0)) {
             ret < ->HeapNode>(0);
@@ -440,4 +389,63 @@ namespace std_Memory {
         ret right_result;
     };
     
+
+        // Helper function to coalesce adjacent free blocks
+    fn int CoalesceBlocks(->Heap heap, ->HeapNode node) {
+        // Simple coalescing - find adjacent blocks and merge them
+        // This is a simplified version - real implementation would be more complex
+        
+        ->HeapNode adjacent = FindAdjacentBlock(heap.root, node);
+        if (adjacent != < ->HeapNode>(0)) {
+            if (adjacent.is_free == 1) {
+                // Merge blocks
+                if (< int>(node.address) < < int>(adjacent.address)) {
+                    // Current block comes first
+                    node.size = node.size + adjacent.size;
+                    rawPtr adjacent_ptr = {< ->int>(0)};
+                    adjacent_ptr.address = < ->int>(adjacent);
+                    RemoveHeap(adjacent_ptr, {< ->int>(0)});
+                } else {
+                    // Adjacent block comes first
+                    adjacent.size = adjacent.size + node.size;
+                    rawPtr node_ptr = {< ->int>(0)};
+                    node_ptr.address = < ->int>(node);
+                    RemoveHeap(node_ptr, {< ->int>(0)});
+                }
+            }
+        }
+        
+        ret 0;
+    };
+    
+    // Free dynamic memory
+    fn int dynfree(rawPtr object, rawPtr heap_ptr) {
+        ->Heap heap = < ->Heap>(heap_ptr.address);
+        
+        // Find the node corresponding to this memory address
+        ->HeapNode target = FindNodeByAddress(heap.root, object.address);
+        
+        if (target == < ->HeapNode>(0)) {
+            ret -1;  // Address not found
+        }
+        
+        if (target.is_free == 1) {
+            ret -1;  // Already freed
+        }
+        
+        // Mark as free
+        target.is_free = 1;
+        
+        // Try to coalesce with adjacent free blocks
+        CoalesceBlocks(heap, target);
+        
+        ret 0;
+    };
+};
+
+fn int main (){
+    rawPtr heap = InitHeap();
+    rawPtr node = dynalloc(10, heap);
+    dynfree(node, heap);
+    ret 0;
 };

@@ -513,13 +513,117 @@ void CodeGenerator::generateVariableDeclaration(
 
     // Generate initialization code if present
     if (varDecl->initializer) {
-        generateExpression(varDecl->initializer.get());
-        storeFromStackToMemory(varFQDN, "Initialize " + varDecl->name);
+        // Check if this is layout initialization
+        if (varDecl->initializer->nodeType == NodeType::LAYOUT_INITIALIZATION) {
+            const auto *layoutInit = static_cast<const LayoutInitialization *>(varDecl->initializer.get());
+            std::string layoutFQDN = getVariableLayoutType(varFQDN);
+            
+            if (!layoutFQDN.empty()) {
+                emitComment("Layout initialization for " + varFQDN + " (layout: " + layoutFQDN + ")");
+                
+                // Generate code for each initialization value and store it in the corresponding member
+                int baseAddress = memoryManager.getVariableAddress(varFQDN);
+
+                // Store base address at base address
+                emit("p(" + std::to_string(baseAddress) + ") := " + std::to_string(baseAddress) + " // Store base address for layout " + layoutFQDN);
+
+                // Get layout type information to determine member types
+                Symbol *layoutSymbol = semanticAnalyzer->getSymbolTable().findSymbol(layoutFQDN);
+                const LayoutSemanticType *layoutType = nullptr;
+                if (layoutSymbol && layoutSymbol->symbolKind == SymbolKind::LAYOUT) {
+                    layoutType = static_cast<const LayoutSemanticType *>(layoutSymbol->type.get());
+                }
+                
+                int currentOffset = 1; // Start after base address
+                for (size_t i = 0; i < layoutInit->values.size(); ++i) {
+                    generateExpression(layoutInit->values[i].get());
+                    popFromStack("Get layout member value " + std::to_string(i));
+                    
+                    // Calculate member address: base + accumulated offset
+                    int memberAddress = baseAddress + currentOffset;
+                    
+                    // Check if this member is a layout type
+                    bool memberIsLayout = false;
+                    if (layoutType && i < layoutType->members.size()) {
+                        if (layoutType->members[i]->type->isLayout()) {
+                            memberIsLayout = true;
+                            const auto *memberLayoutType = static_cast<const LayoutSemanticType *>(layoutType->members[i]->type.get());
+                            emitComment("DEBUG: Member " + std::to_string(i) + " is layout type " + memberLayoutType->layoutName);
+                            
+                            // For layout members, we need to copy the entire layout
+                            // The value on stack should be the base address of the source layout
+                            emit("a1 := a0 // Source layout base address");
+                            
+                            // Copy each member of the nested layout from source to destination
+                            int memberLayoutSize = calculateLayoutSize(memberLayoutType->layoutName);
+                            for (int j = 1; j < memberLayoutSize; ++j) { // Start from 1, skip base address
+                                emit("a1 := a0 + " + std::to_string(j) + " // Move to source member ");
+                                emit("a2 := p(a1) // Load source member " + std::to_string(j));
+                                emit("p(" + std::to_string(memberAddress + j) + ") := a2 // Store nested layout member " + std::to_string(j));
+                            }
+                            
+                            // Store the base address of the nested layout
+                            emit("p(" + std::to_string(memberAddress) + ") := " + std::to_string(memberAddress) + " // Store nested layout base");
+                            
+                            // Update offset to account for nested layout size
+                            currentOffset += memberLayoutSize;
+                            continue;
+                        }
+                    }
+                    
+                    // For primitive members, just store the value
+                    emit("p(" + std::to_string(memberAddress) + ") := a0 // Store member " + std::to_string(i));
+                    
+                    // Update offset for next member
+                    currentOffset += 1;
+                }
+            } else {
+                emitComment("Warning: Could not determine layout type for " + varFQDN);
+                generateExpression(varDecl->initializer.get());
+                storeFromStackToMemory(varFQDN, "Initialize " + varDecl->name);
+            }
+        } else {
+            generateExpression(varDecl->initializer.get());
+            storeFromStackToMemory(varFQDN, "Initialize " + varDecl->name);
+        }
     }
 }
 
 void CodeGenerator::generateAssignment(const Assignment *assignment) {
     emitComment("Assignment");
+    
+    // Check if this is layout initialization assignment
+    if (assignment->value->nodeType == NodeType::LAYOUT_INITIALIZATION &&
+        assignment->target->nodeType == NodeType::IDENTIFIER) {
+        
+        const auto *layoutInit = static_cast<const LayoutInitialization *>(assignment->value.get());
+        const auto *id = static_cast<const Identifier *>(assignment->target.get());
+        std::string varFQDN = getVariableFQDN(id->name);
+        
+        // Get the layout type from the target variable
+        std::string layoutFQDN = getVariableLayoutType(varFQDN);
+        if (!layoutFQDN.empty()) {
+            emitComment("Layout initialization assignment for " + varFQDN + " (layout: " + layoutFQDN + ")");
+            
+            // Generate code for each initialization value and store it in the corresponding member
+            int baseAddress = memoryManager.getVariableAddress(varFQDN);
+            
+            for (size_t i = 0; i < layoutInit->values.size(); ++i) {
+                generateExpression(layoutInit->values[i].get());
+                popFromStack("Get layout member value " + std::to_string(i));
+                
+                // Calculate member address: base + member offset
+                int memberOffset = i + 1; // Members start at offset 1 (0 is base)
+                int memberAddress = baseAddress + memberOffset;
+                
+                emit("p(" + std::to_string(memberAddress) + ") := a0 // Store member " + std::to_string(i));
+            }
+            return;
+        } else {
+            emitComment("Warning: Could not determine layout type for " + varFQDN);
+        }
+    }
+    
     generateExpression(assignment->value.get()); // value on stack
 
     if (assignment->target->nodeType == NodeType::IDENTIFIER) {
@@ -532,58 +636,167 @@ void CodeGenerator::generateAssignment(const Assignment *assignment) {
             static_cast<const MemberAccess *>(assignment->target.get());
         emitComment("Member access assignment");
 
-        // Only support identifier.object for now
+        // Determine the layout type first, then generate the object expression
+        std::string layoutFQDN;
+        std::string objDescription;
+        
         if (memberAccess->object->nodeType == NodeType::IDENTIFIER) {
-            const auto *objId =
-                static_cast<const Identifier *>(memberAccess->object.get());
+            const auto *objId = static_cast<const Identifier *>(memberAccess->object.get());
             std::string objFQDN = getVariableFQDN(objId->name);
-
-            if (memoryManager.hasVariable(objFQDN)) {
-                int baseAddress = memoryManager.getVariableAddress(objFQDN);
-                std::string layoutFQDN = getVariableLayoutType(objFQDN);
-
-                int memberOffset = 0;
-                bool found = false;
-                if (!layoutFQDN.empty()) {
-                    try {
-                        memberOffset = memoryManager.getLayoutMemberOffset(
-                            layoutFQDN, memberAccess->memberName);
-                        found = true;
-                        emitComment("DEBUG: Found member " +
-                                    memberAccess->memberName + " in layout " +
-                                    layoutFQDN + " at offset " +
-                                    std::to_string(memberOffset));
-                    } catch (const std::exception &) {
-                        emitComment("ERROR: Member " +
-                                    memberAccess->memberName +
-                                    " not found in layout " + layoutFQDN);
+            layoutFQDN = getVariableLayoutType(objFQDN);
+            objDescription = objId->name;
+        } else if (memberAccess->object->nodeType == NodeType::ARRAY_ACCESS) {
+            // Handle array access - get the array variable and its element type
+            const auto *arrayAccess = static_cast<const ArrayAccess *>(memberAccess->object.get());
+            
+            if (arrayAccess->array->nodeType == NodeType::IDENTIFIER) {
+                const auto *arrayId = static_cast<const Identifier *>(arrayAccess->array.get());
+                std::string arrayFQDN = getVariableFQDN(arrayId->name);
+                
+                // Find the array's element type (which should be a layout)
+                Symbol *arraySymbol = semanticAnalyzer->getSymbolTable().findSymbolByFQDN(arrayFQDN);
+                if (arraySymbol && arraySymbol->type && arraySymbol->type->isPointer()) {
+                    const auto *ptrType = static_cast<const PointerSemanticType *>(arraySymbol->type.get());
+                    if (ptrType->pointsTo && ptrType->pointsTo->isLayout()) {
+                        const auto *layoutType = static_cast<const LayoutSemanticType *>(ptrType->pointsTo.get());
+                        layoutFQDN = layoutType->layoutName;
+                        objDescription = arrayId->name + "[" + arrayAccess->index->toString() + "]";
                     }
                 }
-
-                if (!found) {
-                    std::cout << "Using default offset 0 for member assignment "
-                              << memberAccess->memberName
-                              << " (layout: " << layoutFQDN
-                              << ", " + objFQDN + ")" << '\n';
-                    emitComment("Warning: Using default offset 0 for member "
-                                "assignment " +
-                                memberAccess->memberName +
-                                " (layout: " + layoutFQDN + ") | " + objFQDN);
+            }
+        } else if (memberAccess->object->nodeType == NodeType::MEMBER_ACCESS) {
+            // Handle chained member access like n.tuple.right
+            const auto *nestedMemberAccess = static_cast<const MemberAccess *>(memberAccess->object.get());
+            
+            // Get the layout type by tracing through the chain
+            if (nestedMemberAccess->object->nodeType == NodeType::IDENTIFIER) {
+                const auto *baseId = static_cast<const Identifier *>(nestedMemberAccess->object.get());
+                std::string baseFQDN = getVariableFQDN(baseId->name);
+                std::string baseLayoutFQDN = getVariableLayoutType(baseFQDN);
+                
+                if (!baseLayoutFQDN.empty()) {
+                    // Find the type of the nested member
+                    Symbol *baseLayoutSymbol = semanticAnalyzer->getSymbolTable().findSymbol(baseLayoutFQDN);
+                    if (baseLayoutSymbol && baseLayoutSymbol->symbolKind == SymbolKind::LAYOUT) {
+                        const auto *baseLayoutType = static_cast<const LayoutSemanticType *>(baseLayoutSymbol->type.get());
+                        for (const auto &member : baseLayoutType->members) {
+                            if (member->name == nestedMemberAccess->memberName && member->type->isLayout()) {
+                                const auto *memberLayoutType = static_cast<const LayoutSemanticType *>(member->type.get());
+                                layoutFQDN = memberLayoutType->layoutName;
+                                objDescription = baseId->name + "." + nestedMemberAccess->memberName;
+                                emitComment("DEBUG: Chained member access: " + objDescription + " has layout type " + layoutFQDN);
+                                break;
+                            }
+                        }
+                    }
                 }
-
-                int memberAddress = baseAddress + memberOffset;
-                popFromStack("Get assignment value");
-                emit("p(" + std::to_string(memberAddress) +
-                     ") := a0 // Store value in member " +
-                     memberAccess->memberName);
-            } else {
-                emitComment(
-                    "Warning: Object not found for member assignment: " +
-                    objFQDN);
-                popFromStack("Discard assignment value");
+            }
+        } else if (memberAccess->object->nodeType == NodeType::UNARY_EXPRESSION) {
+            // Handle dereference operations like (<-b.ptr).value
+            const auto *unaryExpr = static_cast<const UnaryExpression *>(memberAccess->object.get());
+            
+            if (unaryExpr->operator_ == TokenType::DEREFERENCE) {
+                emitComment("DEBUG: Assignment - handling dereference in member access");
+                
+                // The operand of dereference should give us a pointer to a layout
+                if (unaryExpr->operand->nodeType == NodeType::MEMBER_ACCESS) {
+                    // Case: (<-b.ptr).value where b.ptr is a pointer to layout
+                    const auto *ptrMemberAccess = static_cast<const MemberAccess *>(unaryExpr->operand.get());
+                    
+                    if (ptrMemberAccess->object->nodeType == NodeType::IDENTIFIER) {
+                        const auto *baseId = static_cast<const Identifier *>(ptrMemberAccess->object.get());
+                        std::string baseFQDN = getVariableFQDN(baseId->name);
+                        std::string baseLayoutFQDN = getVariableLayoutType(baseFQDN);
+                        
+                        emitComment("DEBUG: Assignment - analyzing dereference of member access " + baseId->name + "." + ptrMemberAccess->memberName);
+                        emitComment("DEBUG: Assignment - base object " + baseId->name + " has layout type " + baseLayoutFQDN);
+                        
+                        if (!baseLayoutFQDN.empty()) {
+                            // Find the type of the pointer member
+                            Symbol *baseLayoutSymbol = semanticAnalyzer->getSymbolTable().findSymbol(baseLayoutFQDN);
+                            if (baseLayoutSymbol && baseLayoutSymbol->symbolKind == SymbolKind::LAYOUT) {
+                                const auto *baseLayoutType = static_cast<const LayoutSemanticType *>(baseLayoutSymbol->type.get());
+                                for (const auto &member : baseLayoutType->members) {
+                                    if (member->name == ptrMemberAccess->memberName) {
+                                        emitComment("DEBUG: Assignment - found member " + member->name + " with type " + member->type->toString());
+                                        if (member->type->isPointer()) {
+                                            const auto *ptrType = static_cast<const PointerSemanticType *>(member->type.get());
+                                            if (ptrType->pointsTo && ptrType->pointsTo->isLayout()) {
+                                                const auto *pointedLayoutType = static_cast<const LayoutSemanticType *>(ptrType->pointsTo.get());
+                                                layoutFQDN = pointedLayoutType->layoutName;
+                                                objDescription = "(<-" + baseId->name + "." + ptrMemberAccess->memberName + ")";
+                                                emitComment("DEBUG: Assignment - dereference member access: " + objDescription + " has layout type " + layoutFQDN);
+                                            } else {
+                                                emitComment("DEBUG: Assignment - pointer member " + ptrMemberAccess->memberName + " does not point to a layout");
+                                            }
+                                        } else {
+                                            emitComment("DEBUG: Assignment - member " + ptrMemberAccess->memberName + " is not a pointer type");
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else if (unaryExpr->operand->nodeType == NodeType::IDENTIFIER) {
+                    // Case: (<-ptr).member where ptr is a pointer to layout
+                    const auto *ptrId = static_cast<const Identifier *>(unaryExpr->operand.get());
+                    std::string ptrFQDN = getVariableFQDN(ptrId->name);
+                    
+                    // Find the variable's type to see what it points to
+                    Symbol *ptrSymbol = semanticAnalyzer->getSymbolTable().findSymbolByFQDN(ptrFQDN);
+                    if (ptrSymbol && ptrSymbol->type && ptrSymbol->type->isPointer()) {
+                        const auto *ptrType = static_cast<const PointerSemanticType *>(ptrSymbol->type.get());
+                        if (ptrType->pointsTo && ptrType->pointsTo->isLayout()) {
+                            const auto *pointedLayoutType = static_cast<const LayoutSemanticType *>(ptrType->pointsTo.get());
+                            layoutFQDN = pointedLayoutType->layoutName;
+                            objDescription = "(<-" + ptrId->name + ")";
+                            emitComment("DEBUG: Assignment - direct pointer dereference: " + objDescription + " has layout type " + layoutFQDN);
+                        }
+                    }
+                }
             }
         } else {
-            emitComment("Warning: Complex member assignment not supported");
+            objDescription = memberAccess->object->toString();
+        }
+
+        if (!layoutFQDN.empty()) {
+            int memberOffset = 0;
+            bool found = false;
+            
+            try {
+                memberOffset = memoryManager.getLayoutMemberOffset(
+                    layoutFQDN, memberAccess->memberName);
+                found = true;
+                emitComment("DEBUG: Found member " + memberAccess->memberName + 
+                           " in layout " + layoutFQDN + " at offset " + 
+                           std::to_string(memberOffset));
+            } catch (const std::exception &) {
+                emitComment("ERROR: Member " + memberAccess->memberName +
+                           " not found in layout " + layoutFQDN);
+            }
+
+            if (!found) {
+                emitComment("Warning: Using default offset 0 for member assignment " +
+                           memberAccess->memberName + " (layout: " + layoutFQDN + ")");
+            }
+
+            // Current stack: assignment value
+
+            // Todo: first set a0 to the object base address
+            generateExpression(memberAccess->object.get()); // object base address on stack
+
+            // Calculate member address: object base address + member offset
+            popFromStack("Get object base address"); // → Error stackunderflow
+            emit("a1 := a0 + " + std::to_string(memberOffset) + 
+                 " // Calculate member address (" + objDescription + "." + 
+                 memberAccess->memberName + ")");
+            
+            popFromStack("Get assignment value");
+            emit("p(a1) := a0 // Store value in member " + memberAccess->memberName);
+        } else {
+            emitComment("Warning: Could not determine layout type for " + objDescription);
+            popFromStack("Discard object address");
             popFromStack("Discard assignment value");
         }
     } else if (assignment->target->nodeType == NodeType::ARRAY_ACCESS) {
@@ -663,6 +876,9 @@ void CodeGenerator::generateExpression(const Expression *expr) {
         break;
     case NodeType::TYPE_CAST:
         generateTypeCast(dynamic_cast<const TypeCast *>(expr));
+        break;
+    case NodeType::LAYOUT_INITIALIZATION:
+        generateLayoutInitialization(dynamic_cast<const LayoutInitialization *>(expr));
         break;
     default:
         emitComment("Warning: Unhandled expression type");
@@ -795,7 +1011,18 @@ void CodeGenerator::generateIdentifier(const Identifier *id) {
         int address = memoryManager.getVariableAddress(varFQDN);
         emitComment("DEBUG: Loading variable " + varFQDN + " from address " +
                     std::to_string(address));
-        emit("a0 := p(" + std::to_string(address) + ") // Load " + id->name);
+        
+        // Check if this is a layout variable
+        std::string layoutFQDN = getVariableLayoutType(varFQDN);
+        if (!layoutFQDN.empty()) {
+            // For layout variables, return the base address (stored at the address)
+            emit("a0 := p(" + std::to_string(address) + ") // Load layout base address for " + id->name);
+            emitComment("DEBUG: Variable " + id->name + " is layout type " + layoutFQDN);
+        } else {
+            // For primitive variables, load the value
+            emit("a0 := p(" + std::to_string(address) + ") // Load " + id->name);
+        }
+        
         pushToStack(" variable " + id->name);
     } else {
         emitComment("WARNING: Undefined variable " + varFQDN + " - using 0");
@@ -978,22 +1205,140 @@ void CodeGenerator::generateFunctionCall(const FunctionCall *funcCall) {
 
 // Update member access to use FQDNs
 void CodeGenerator::generateMemberAccess(const MemberAccess *memberAccess) {
-    // Generate code for the object expression first (its value ends up on
-    // stack)
-    generateExpression(memberAccess->object.get());
-
-    // Determine variable FQDN if object is identifier
+    // Determine layout type BEFORE generating the object expression
     std::string objFQDN;
+    std::string layoutFQDN;
+    
     if (memberAccess->object->nodeType == NodeType::IDENTIFIER) {
         const auto *objId =
             static_cast<const Identifier *>(memberAccess->object.get());
         objFQDN = getVariableFQDN(objId->name);
+        layoutFQDN = getVariableLayoutType(objFQDN);
+        emitComment("DEBUG: Simple identifier access: " + objFQDN + " has layout type " + layoutFQDN);
+    } else if (memberAccess->object->nodeType == NodeType::ARRAY_ACCESS) {
+        // Handle array access - get the array variable and its element type
+        const auto *arrayAccess = static_cast<const ArrayAccess *>(memberAccess->object.get());
+        
+        if (arrayAccess->array->nodeType == NodeType::IDENTIFIER) {
+            const auto *arrayId = static_cast<const Identifier *>(arrayAccess->array.get());
+            std::string arrayFQDN = getVariableFQDN(arrayId->name);
+            
+            // Find the array's element type (which should be a layout)
+            Symbol *arraySymbol = semanticAnalyzer->getSymbolTable().findSymbolByFQDN(arrayFQDN);
+            if (arraySymbol && arraySymbol->type && arraySymbol->type->isPointer()) {
+                const auto *ptrType = static_cast<const PointerSemanticType *>(arraySymbol->type.get());
+                if (ptrType->pointsTo && ptrType->pointsTo->isLayout()) {
+                    const auto *layoutType = static_cast<const LayoutSemanticType *>(ptrType->pointsTo.get());
+                    layoutFQDN = layoutType->layoutName;
+                    objFQDN = arrayFQDN + "[" + arrayAccess->index->toString() + "]";
+                    emitComment("DEBUG: Array element has layout type " + layoutFQDN);
+                }
+            }
+        }
+    } else if (memberAccess->object->nodeType == NodeType::MEMBER_ACCESS) {
+        // Handle nested member access like n.tuple.right
+        const auto *nestedMemberAccess = static_cast<const MemberAccess *>(memberAccess->object.get());
+        
+        // Get the layout type by tracing through the chain
+        if (nestedMemberAccess->object->nodeType == NodeType::IDENTIFIER) {
+            const auto *baseId = static_cast<const Identifier *>(nestedMemberAccess->object.get());
+            std::string baseFQDN = getVariableFQDN(baseId->name);
+            std::string baseLayoutFQDN = getVariableLayoutType(baseFQDN);
+            
+            if (!baseLayoutFQDN.empty()) {
+                // Find the type of the nested member
+                Symbol *baseLayoutSymbol = semanticAnalyzer->getSymbolTable().findSymbol(baseLayoutFQDN);
+                if (baseLayoutSymbol && baseLayoutSymbol->symbolKind == SymbolKind::LAYOUT) {
+                    const auto *baseLayoutType = static_cast<const LayoutSemanticType *>(baseLayoutSymbol->type.get());
+                    for (const auto &member : baseLayoutType->members) {
+                        if (member->name == nestedMemberAccess->memberName) {
+                            if (member->type->isLayout()) {
+                                const auto *memberLayoutType = static_cast<const LayoutSemanticType *>(member->type.get());
+                                layoutFQDN = memberLayoutType->layoutName;
+                                objFQDN = baseId->name + "." + nestedMemberAccess->memberName;
+                                emitComment("DEBUG: Chained member access: " + objFQDN + " has layout type " + layoutFQDN);
+                            } else {
+                                emitComment("DEBUG: Member " + nestedMemberAccess->memberName + " is not a layout type");
+                                objFQDN = baseId->name + "." + nestedMemberAccess->memberName;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    } else if (memberAccess->object->nodeType == NodeType::UNARY_EXPRESSION) {
+        // Handle dereference operations like (<-n.tuple).right
+        const auto *unaryExpr = static_cast<const UnaryExpression *>(memberAccess->object.get());
+        
+        if (unaryExpr->operator_ == TokenType::DEREFERENCE) {
+            emitComment("DEBUG: Handling dereference in member access");
+            
+            // The operand of dereference should give us a pointer to a layout
+            if (unaryExpr->operand->nodeType == NodeType::MEMBER_ACCESS) {
+                // Case: (<-b.ptr).value where b.ptr is a pointer to layout
+                const auto *ptrMemberAccess = static_cast<const MemberAccess *>(unaryExpr->operand.get());
+                
+                if (ptrMemberAccess->object->nodeType == NodeType::IDENTIFIER) {
+                    const auto *baseId = static_cast<const Identifier *>(ptrMemberAccess->object.get());
+                    std::string baseFQDN = getVariableFQDN(baseId->name);
+                    std::string baseLayoutFQDN = getVariableLayoutType(baseFQDN);
+                    
+                    emitComment("DEBUG: Analyzing dereference of member access " + baseId->name + "." + ptrMemberAccess->memberName);
+                    emitComment("DEBUG: Base object " + baseId->name + " has layout type " + baseLayoutFQDN);
+                    
+                    if (!baseLayoutFQDN.empty()) {
+                        // Find the type of the pointer member
+                        Symbol *baseLayoutSymbol = semanticAnalyzer->getSymbolTable().findSymbol(baseLayoutFQDN);
+                        if (baseLayoutSymbol && baseLayoutSymbol->symbolKind == SymbolKind::LAYOUT) {
+                            const auto *baseLayoutType = static_cast<const LayoutSemanticType *>(baseLayoutSymbol->type.get());
+                            for (const auto &member : baseLayoutType->members) {
+                                if (member->name == ptrMemberAccess->memberName) {
+                                    emitComment("DEBUG: Found member " + member->name + " with type " + member->type->toString());
+                                    if (member->type->isPointer()) {
+                                        const auto *ptrType = static_cast<const PointerSemanticType *>(member->type.get());
+                                        if (ptrType->pointsTo && ptrType->pointsTo->isLayout()) {
+                                            const auto *pointedLayoutType = static_cast<const LayoutSemanticType *>(ptrType->pointsTo.get());
+                                            layoutFQDN = pointedLayoutType->layoutName;
+                                            objFQDN = "(<-" + baseId->name + "." + ptrMemberAccess->memberName + ")";
+                                            emitComment("DEBUG: Dereference member access: " + objFQDN + " has layout type " + layoutFQDN);
+                                        } else {
+                                            emitComment("DEBUG: Pointer member " + ptrMemberAccess->memberName + " does not point to a layout");
+                                        }
+                                    } else {
+                                        emitComment("DEBUG: Member " + ptrMemberAccess->memberName + " is not a pointer type");
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (unaryExpr->operand->nodeType == NodeType::IDENTIFIER) {
+                // Case: (<-ptr).member where ptr is a pointer to layout
+                const auto *ptrId = static_cast<const Identifier *>(unaryExpr->operand.get());
+                std::string ptrFQDN = getVariableFQDN(ptrId->name);
+                
+                // Find the variable's type to see what it points to
+                Symbol *ptrSymbol = semanticAnalyzer->getSymbolTable().findSymbolByFQDN(ptrFQDN);
+                if (ptrSymbol && ptrSymbol->type && ptrSymbol->type->isPointer()) {
+                    const auto *ptrType = static_cast<const PointerSemanticType *>(ptrSymbol->type.get());
+                    if (ptrType->pointsTo && ptrType->pointsTo->isLayout()) {
+                        const auto *pointedLayoutType = static_cast<const LayoutSemanticType *>(ptrType->pointsTo.get());
+                        layoutFQDN = pointedLayoutType->layoutName;
+                        objFQDN = "(<-" + ptrId->name + ")";
+                        emitComment("DEBUG: Direct pointer dereference: " + objFQDN + " has layout type " + layoutFQDN);
+                    }
+                }
+            }
+        }
     } else {
         objFQDN = memberAccess->object->toString();
     }
 
-    // Get the layout type of the object
-    std::string layoutFQDN = getVariableLayoutType(objFQDN);
+    // Generate code for the object expression (its value ends up on stack)
+    generateExpression(memberAccess->object.get());
+
     if (layoutFQDN.empty()) {
         emitComment("DEBUG: Layout type not found for " + objFQDN);
         return;
@@ -1023,7 +1368,34 @@ void CodeGenerator::generateMemberAccess(const MemberAccess *memberAccess) {
     popFromStack("Get base address");
     emit("a0 := a0 + " + std::to_string(offset) +
          " // Add total member offset");
-    pushToStack(" member address");
+    
+    // Check if this member is itself a layout type
+    bool memberIsLayout = false;
+    if (!layoutFQDN.empty()) {
+        // Look up the layout to get member information
+        Symbol *layoutSymbol = semanticAnalyzer->getSymbolTable().findSymbol(layoutFQDN);
+        if (layoutSymbol && layoutSymbol->symbolKind == SymbolKind::LAYOUT) {
+            const auto *layoutType = static_cast<const LayoutSemanticType *>(layoutSymbol->type.get());
+            for (const auto &member : layoutType->members) {
+                if (member->name == currentAccess->memberName) {
+                    if (member->type->isLayout()) {
+                        memberIsLayout = true;
+                        emitComment("DEBUG: Member " + member->name + " is a layout type");
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    
+    if (memberIsLayout) {
+        // For layout members, return the address (base address of the nested layout)
+        pushToStack(" layout member address");
+    } else {
+        // For primitive members, load the value
+        emit("a0 := p(a0) // Load member value");
+        pushToStack(" member value");
+    }
 }
 
 void CodeGenerator::generateArrayAccess(const ArrayAccess *arrayAccess) {
@@ -1035,13 +1407,54 @@ void CodeGenerator::generateArrayAccess(const ArrayAccess *arrayAccess) {
     // Generate the index
     generateExpression(arrayAccess->index.get());
 
-    // Pop index and array address, calculate address, load value
+    // Determine the element size based on the array's element type
+    int elementSize = 1; // Default for basic types
+    std::string arrayFQDN;
+    
+    // Get the array variable's FQDN to determine its element type
+    if (arrayAccess->array->nodeType == NodeType::IDENTIFIER) {
+        const auto *arrayId = static_cast<const Identifier *>(arrayAccess->array.get());
+        arrayFQDN = getVariableFQDN(arrayId->name);
+        
+        // Find the array's type to determine element size
+        Symbol *arraySymbol = semanticAnalyzer->getSymbolTable().findSymbolByFQDN(arrayFQDN);
+        if (arraySymbol && arraySymbol->type && arraySymbol->type->isPointer()) {
+            const auto *ptrType = static_cast<const PointerSemanticType *>(arraySymbol->type.get());
+            if (ptrType->pointsTo && ptrType->pointsTo->isLayout()) {
+                const auto *layoutType = static_cast<const LayoutSemanticType *>(ptrType->pointsTo.get());
+                elementSize = calculateLayoutSize(layoutType->layoutName);
+                emitComment("DEBUG: Array access for layout type " + layoutType->layoutName + 
+                           " with element size " + std::to_string(elementSize));
+            }
+        }
+    }
+
+    // Pop index and array address, calculate address
     popFromStack("Get index");
     emit("a1 := a0 // Store index in a1");
     popFromStack("Get array base address");
-    emit("a0 := a0 + a1 // Calculate element address (base + index)");
-    emit("a0 := p(a0) // Load array element");
-    pushToStack(" element value");
+    
+    if (elementSize > 1) {
+        // For layout types, multiply index by element size
+        emit("a2 := " + std::to_string(elementSize) + " // Element size");
+        emit("a1 := a1 * a2 // Calculate offset (index * element_size)");
+        emit("a0 := a0 + a1 // Calculate element address (base + offset)");
+        emitComment("DEBUG: Layout array access: base + (index * " + std::to_string(elementSize) + ")");
+    } else {
+        // For basic types, simple addition
+        emit("a0 := a0 + a1 // Calculate element address (base + index)");
+    }
+    
+    // For layout types, we return the address (not the value)
+    // For basic types, we load the value
+    if (elementSize > 1) {
+        // Return the address of the layout element (no dereference)
+        pushToStack(" layout element address");
+    } else {
+        // Load the value for basic types
+        emit("a0 := p(a0) // Load array element");
+        pushToStack(" element value");
+    }
 }
 
 void CodeGenerator::generateArrayAllocation(const ArrayAllocation *arrayAlloc) {
@@ -1054,6 +1467,18 @@ void CodeGenerator::generateArrayAllocation(const ArrayAllocation *arrayAlloc) {
     popFromStack("Get array size");
     emit("a1 := a0 // Store size in a1");
 
+    // Calculate the size of each element
+    int elementSize = 1; // Default for basic types
+    std::string elementLayoutFQDN;
+    
+    // Check if this is a layout type
+    if (arrayAlloc->elementType->nodeType == NodeType::LAYOUT_TYPE) {
+        const auto *layoutType = static_cast<const LayoutType *>(arrayAlloc->elementType.get());
+        elementLayoutFQDN = getLayoutFQDN(layoutType->layoutName);
+        elementSize = calculateLayoutSize(layoutType->layoutName);
+        emitComment("DEBUG: Array of layout type " + elementLayoutFQDN + " with element size " + std::to_string(elementSize));
+    }
+
     // For now, allocate array at compile time with a fixed size if iter's a
     // literal
     if (arrayAlloc->size->nodeType == NodeType::LITERAL) {
@@ -1061,23 +1486,45 @@ void CodeGenerator::generateArrayAllocation(const ArrayAllocation *arrayAlloc) {
             static_cast<const Literal *>(arrayAlloc->size.get());
         int arraySize = std::stoi(sizeLit->value);
 
+        // Calculate total memory needed: array size * element size
+        int totalMemoryNeeded = arraySize * elementSize;
+        emitComment("DEBUG: Allocating array of " + std::to_string(arraySize) + 
+                   " elements, each " + std::to_string(elementSize) + 
+                   " cells, total " + std::to_string(totalMemoryNeeded) + " cells");
+
         // Allocate contiguous memory block for the array
-        int baseAddress = memoryManager.allocateArray(arraySize);
+        int baseAddress = memoryManager.allocateArray(totalMemoryNeeded);
 
         emit("a0 := " + std::to_string(baseAddress) +
              " // Base address of allocated array");
 
-        // Simple initialization to 0 (optional)
-        for (int i = 0; i < arraySize; i++) {
-            emit("p(" + std::to_string(baseAddress + i) +
-                 ") := 0 // Initialize element " + std::to_string(i));
+        // Initialize array elements
+        if (!elementLayoutFQDN.empty()) {
+            // For layout types, initialize each element properly
+            for (int i = 0; i < arraySize; i++) {
+                int elementBaseAddress = baseAddress + (i * elementSize);
+                emitComment("DEBUG: Initializing layout element " + std::to_string(i) + 
+                           " at address " + std::to_string(elementBaseAddress));
+                
+                // Initialize layout members to 0
+                for (int j = 0; j < elementSize; j++) {
+                    emit("p(" + std::to_string(elementBaseAddress + j) +
+                         ") := 0 // Initialize layout member " + std::to_string(j));
+                }
+            }
+        } else {
+            // Simple initialization for basic types
+            for (int i = 0; i < totalMemoryNeeded; i++) {
+                emit("p(" + std::to_string(baseAddress + i) +
+                     ") := 0 // Initialize element " + std::to_string(i));
+            }
         }
     } else {
         // Dynamic allocation - for now, use a simple approach
         // This would need runtime memory management in a complete
         // implementation
         int baseAddress =
-            memoryManager.allocateArray(100); // Default max size for now
+            memoryManager.allocateArray(100 * elementSize); // Default max size for now
         emit("a0 := " + std::to_string(baseAddress) +
              " // Base address of allocated array (dynamic)");
         emitComment("Warning: Dynamic array allocation simplified");
@@ -1156,12 +1603,22 @@ void CodeGenerator::setupLayoutMembers(
         emitComment("DEBUG: Layout is in namespace: " + namespaceName);
     }
 
-    int offset = 0;
+    int offset = 1; // 0 = layout base address
+
     for (const auto &member : members) {
         emitComment("DEBUG: Layout " + layoutFQDN + " member '" + member->name +
                     "' at offset " + std::to_string(offset));
         memoryManager.setLayoutMemberOffset(layoutFQDN, member->name, offset);
-        offset += 1; // Member size (each member takes 1 slot)
+        
+        // Calculate member size - if it's a layout type, it takes more space
+        int memberSize = 1; // Default for primitive types
+        if (member->type->nodeType == NodeType::LAYOUT_TYPE) {
+            const auto *layoutType = static_cast<const LayoutType *>(member->type.get());
+            memberSize = calculateLayoutSize(layoutType->layoutName);
+            emitComment("DEBUG: Member " + member->name + " is layout type with size " + std::to_string(memberSize));
+        }
+        
+        offset += memberSize;
     }
 }
 
@@ -1174,12 +1631,25 @@ int CodeGenerator::calculateLayoutSize(const std::string &layoutName) {
             layoutSymbol->symbolKind == SymbolKind::LAYOUT) {
             const auto *layoutType = static_cast<const LayoutSemanticType *>(
                 layoutSymbol->type.get());
-            int memberCount = layoutType->members.size();
-            if (memberCount == 0)
-                return 0;
-            // Each member takes 1 slot + 1 padding, except the last member (no
-            // padding after)
-            return memberCount + (memberCount - 1);
+            
+            if (layoutType->members.empty())
+                return 1; // Even empty layouts need at least 1 cell for base address
+            
+            // Calculate total size by summing member sizes
+            int totalSize = 1; // +1 for the layout base address
+            
+            for (const auto &member : layoutType->members) {
+                if (member->type->isLayout()) {
+                    // Recursive calculation for nested layouts
+                    const auto *memberLayoutType = static_cast<const LayoutSemanticType *>(member->type.get());
+                    totalSize += calculateLayoutSize(memberLayoutType->layoutName);
+                } else {
+                    // Primitive type takes 1 cell
+                    totalSize += 1;
+                }
+            }
+            
+            return totalSize;
         }
     }
     return 1; // Default size if layout not found
@@ -1383,6 +1853,7 @@ void CodeGenerator::generateFunctionDeclaration(
 
     // Note: Functions should have explicit return statements
     // If no explicit return is found, the assembler will handle iter
+    // Todo: only emit this if no "ret" was found
     emitComment("Function " + funcDecl->name + " ends without explicit return");
 
     // Restore previous context
@@ -1512,6 +1983,27 @@ void CodeGenerator::generateSyscallExpression(
 
     // Syscall result is in a0, push iter to stack
     pushToStack(" syscall result");
+}
+
+void CodeGenerator::generateLayoutInitialization(const LayoutInitialization *layoutInit) {
+    emitComment("Layout initialization expression");
+    
+    // Layout initialization expressions need to be handled in context
+    // (i.e., during assignment or variable declaration) to know the target layout type.
+    // For now, we'll just push the values onto the stack in reverse order
+    // so they can be retrieved during assignment/declaration.
+    
+    emitComment("DEBUG: Layout initialization with " + std::to_string(layoutInit->values.size()) + " values");
+    
+    // Push values in reverse order (so first value is on top)
+    for (int i = static_cast<int>(layoutInit->values.size()) - 1; i >= 0; i--) {
+        generateExpression(layoutInit->values[i].get());
+        emitComment("DEBUG: Pushed initialization value " + std::to_string(i));
+    }
+    
+    // Push a marker to indicate this is a layout initialization
+    emit("a0 := " + std::to_string(layoutInit->values.size()) + " // Number of layout init values");
+    pushToStack(" layout init marker");
 }
 
 } // namespace calpha

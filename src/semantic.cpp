@@ -152,6 +152,18 @@ SemanticAnalyzer::convertType(const Type *astType) {
                      astType->line, astType->column);
             return std::make_unique<BasicSemanticType>(SemanticTypeKind::ERROR);
         }
+        
+        // For self-referential layouts, create a new type with the correct FQDN
+        // instead of cloning the potentially incomplete forward declaration
+        const auto *existingLayout = dynamic_cast<const LayoutSemanticType *>(layoutSymbol->type.get());
+        if (existingLayout->members.empty()) {
+            // This might be a forward declaration, create a reference by name
+            std::cout << "DEBUG: Found forward declaration for " << layoutName 
+                      << ", creating name-based reference" << std::endl;
+            return std::make_unique<LayoutSemanticType>(layoutSymbol->fqdn, 
+                std::vector<std::unique_ptr<LayoutSemanticType::Member>>());
+        }
+        
         return layoutSymbol->type->clone();
     }
     default:
@@ -239,8 +251,40 @@ void SemanticAnalyzer::visitVariableDeclaration(
     if (varDecl->initializer) {
         auto initType = visitExpression(varDecl->initializer.get());
 
+        // Special case: layout initialization to layout variable
+        if (varDecl->initializer->nodeType == NodeType::LAYOUT_INITIALIZATION &&
+            semanticType->isLayout()) {
+            const auto *layoutInit = dynamic_cast<const LayoutInitialization *>(varDecl->initializer.get());
+            const auto *layoutSemanticType = dynamic_cast<const LayoutSemanticType *>(semanticType.get());
+            
+            // Check that the number of values matches the number of layout members
+            if (layoutInit->values.size() != layoutSemanticType->members.size()) {
+                addError("Layout initialization has " + std::to_string(layoutInit->values.size()) +
+                         " values but layout '" + layoutSemanticType->layoutName + "' has " +
+                         std::to_string(layoutSemanticType->members.size()) + " members",
+                         varDecl->line, varDecl->column);
+            } else {
+                // Check that each initialization value is compatible with its corresponding member
+                bool allCompatible = true;
+                for (size_t i = 0; i < layoutInit->values.size(); ++i) {
+                    auto initValueType = visitExpression(layoutInit->values[i].get());
+                    const auto &member = layoutSemanticType->members[i];
+                    
+                    if (initValueType && !member->type->isCompatibleWith(initValueType.get())) {
+                        addError("Type mismatch in layout initialization for member '" + member->name +
+                                 "'. Expected " + member->type->toString() + ", got " + initValueType->toString(),
+                                 layoutInit->values[i]->line, layoutInit->values[i]->column);
+                        allCompatible = false;
+                    }
+                }
+                
+                if (allCompatible) {
+                    isInitialized = true;
+                }
+            }
+        }
         // Special case: string literal assignment to char pointer
-        if (varDecl->initializer->nodeType == NodeType::STRING_LITERAL &&
+        else if (varDecl->initializer->nodeType == NodeType::STRING_LITERAL &&
             semanticType->isPointer()) {
             const auto *ptrType =
                 dynamic_cast<const PointerSemanticType *>(semanticType.get());
@@ -336,16 +380,11 @@ void SemanticAnalyzer::visitLayoutDeclaration(
               << " at line " << layoutDecl->line << ", column "
               << layoutDecl->column << '\n';
 
-    // Create a temporary symbol to get the FQDN that the symbol table will
-    // generate. This is the most reliable way to get the canonical name.
-    auto tempSymbolForFqdn =
-        std::make_unique<Symbol>(layoutDecl->name, SymbolKind::LAYOUT, nullptr,
-                                 layoutDecl->line, layoutDecl->column, true);
+    // Get the FQDN that the symbol table will generate for this layout
+    // We need to manually build the FQDN since the symbol isn't added yet
+    std::string fqdn = symbolTable.buildFQDN(layoutDecl->name);
 
-    // ISSUE HERE:
-    // SYMBOL->FQDN IS NOT SET UNTIL buildFQDN IS CALLED!
-
-    std::string fqdn = tempSymbolForFqdn->fqdn;
+    std::cout << "\t> Generated FQDN for layout: " << fqdn << '\n';
 
     // Always create a forward declaration first, then replace with complete
     // layout This ensures the layout type is available for processing members
@@ -358,8 +397,6 @@ void SemanticAnalyzer::visitLayoutDeclaration(
     symbolTable.addSymbol(std::move(forwardSymbol));
 
     std::cout << "\t> Forward layout declaration: " << fqdn << '\n';
-    fqdn = symbolTable.getScopes().back()->symbols[layoutDecl->name]->fqdn;
-    std::cout << "\t> Finalized FQDN for layout: " << fqdn << '\n';
     // Now process the members
     std::vector<std::unique_ptr<LayoutSemanticType::Member>> members;
 
@@ -391,6 +428,44 @@ void SemanticAnalyzer::visitAssignment(const Assignment *assignment) {
     auto valueType = visitExpression(assignment->value.get());
 
     if (targetType && valueType) {
+        // Special case: layout initialization to layout variable
+        if (assignment->value->nodeType == NodeType::LAYOUT_INITIALIZATION &&
+            targetType->isLayout()) {
+            const auto *layoutInit = dynamic_cast<const LayoutInitialization *>(assignment->value.get());
+            const auto *layoutTargetType = dynamic_cast<const LayoutSemanticType *>(targetType.get());
+            
+            // Check that the number of values matches the number of layout members
+            if (layoutInit->values.size() != layoutTargetType->members.size()) {
+                addError("Layout initialization has " + std::to_string(layoutInit->values.size()) +
+                         " values but layout '" + layoutTargetType->layoutName + "' has " +
+                         std::to_string(layoutTargetType->members.size()) + " members",
+                         assignment->line, assignment->column);
+                return;
+            }
+            
+            // Check that each initialization value is compatible with its corresponding member
+            for (size_t i = 0; i < layoutInit->values.size(); ++i) {
+                auto initValueType = visitExpression(layoutInit->values[i].get());
+                const auto &member = layoutTargetType->members[i];
+                
+                if (initValueType && !member->type->isCompatibleWith(initValueType.get())) {
+                    addError("Type mismatch in layout initialization for member '" + member->name +
+                             "'. Expected " + member->type->toString() + ", got " + initValueType->toString(),
+                             layoutInit->values[i]->line, layoutInit->values[i]->column);
+                }
+            }
+            
+            // Mark as initialized
+            if (assignment->target->nodeType == NodeType::IDENTIFIER) {
+                const auto *id = dynamic_cast<const Identifier *>(assignment->target.get());
+                Symbol *symbol = symbolTable.findSymbol(id->name);
+                if (symbol != nullptr) {
+                    symbol->isInitialized = true;
+                }
+            }
+            return;
+        }
+        
         // Special case: string literal assignment to char pointer
         if (assignment->value->nodeType == NodeType::STRING_LITERAL &&
             targetType->isPointer()) {
@@ -525,6 +600,8 @@ SemanticAnalyzer::visitExpression(const Expression *expr) {
             dynamic_cast<const SyscallExpression *>(expr));
     case NodeType::TYPE_CAST:
         return visitTypeCast(dynamic_cast<const TypeCast *>(expr));
+    case NodeType::LAYOUT_INITIALIZATION:
+        return visitLayoutInitialization(dynamic_cast<const LayoutInitialization *>(expr));
     default:
         addError("Unknown expression type", expr->line, expr->column);
         return std::make_unique<BasicSemanticType>(SemanticTypeKind::ERROR);
@@ -725,7 +802,37 @@ SemanticAnalyzer::visitUnaryExpression(const UnaryExpression *unExpr) {
         }
         const auto *ptrType =
             dynamic_cast<const PointerSemanticType *>(operandType.get());
-        return ptrType->pointsTo->clone();
+        
+        // Debug: Check what we're dereferencing
+        std::cout << "DEBUG: Dereferencing pointer to: " << ptrType->pointsTo->toString() << std::endl;
+        if (ptrType->pointsTo->isLayout()) {
+            const auto *layoutType = dynamic_cast<const LayoutSemanticType *>(ptrType->pointsTo.get());
+            std::cout << "DEBUG: Original layout '" << layoutType->layoutName 
+                      << "' has " << layoutType->members.size() << " members" << std::endl;
+            
+            // If the layout has no members, it might be a forward declaration
+            // Try to resolve it from the symbol table
+            if (layoutType->members.empty()) {
+                std::cout << "DEBUG: Layout has no members, attempting to resolve from symbol table" << std::endl;
+                Symbol *layoutSymbol = symbolTable.findSymbol(layoutType->layoutName);
+                if (layoutSymbol && layoutSymbol->symbolKind == SymbolKind::LAYOUT) {
+                    const auto *completeLayout = dynamic_cast<const LayoutSemanticType *>(layoutSymbol->type.get());
+                    std::cout << "DEBUG: Found complete layout with " << completeLayout->members.size() << " members" << std::endl;
+                    return completeLayout->clone();
+                }
+            }
+        }
+        
+        auto result = ptrType->pointsTo->clone();
+        
+        // Debug: Check what the clone produced
+        if (result->isLayout()) {
+            const auto *clonedLayoutType = dynamic_cast<const LayoutSemanticType *>(result.get());
+            std::cout << "DEBUG: Cloned layout '" << clonedLayoutType->layoutName 
+                      << "' has " << clonedLayoutType->members.size() << " members" << std::endl;
+        }
+        
+        return result;
     }
 
     default:
@@ -910,6 +1017,15 @@ SemanticAnalyzer::visitMemberAccess(const MemberAccess *memberAccess) {
 
     const auto *layoutType =
         dynamic_cast<const LayoutSemanticType *>(objectType.get());
+    
+    // Debug: Print layout information
+    std::cout << "DEBUG: Looking for member '" << memberAccess->memberName 
+              << "' in layout '" << layoutType->layoutName << "'" << std::endl;
+    std::cout << "DEBUG: Layout has " << layoutType->members.size() << " members:" << std::endl;
+    for (const auto &layoutMember : layoutType->members) {
+        std::cout << "  - " << layoutMember->name << " (" << layoutMember->type->toString() << ")" << std::endl;
+    }
+    
     const LayoutSemanticType::Member *member =
         layoutType->findMember(memberAccess->memberName);
 
@@ -936,6 +1052,25 @@ SemanticAnalyzer::visitSyscallExpression(const SyscallExpression *syscallExpr) {
 
     // syscall returns an integer value
     return std::make_unique<BasicSemanticType>(SemanticTypeKind::INT);
+}
+
+std::unique_ptr<SemanticType>
+SemanticAnalyzer::visitLayoutInitialization(const LayoutInitialization *layoutInit) {
+    // Layout initialization returns a special type that can be assigned to layout variables
+    // We'll return an ERROR type for now since we can't determine the specific layout type
+    // without more context. The actual type checking will happen during assignment.
+    
+    // Validate all initialization values
+    for (const auto &value : layoutInit->values) {
+        auto valueType = visitExpression(value.get());
+        if (!valueType || valueType->isError()) {
+            addError("Invalid expression in layout initialization",
+                     value->line, value->column);
+        }
+    }
+    
+    // Return a special marker type - this will be resolved during assignment
+    return std::make_unique<BasicSemanticType>(SemanticTypeKind::ERROR);
 }
 
 } // namespace calpha
