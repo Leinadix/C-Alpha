@@ -70,3 +70,8 @@ add_executable(test_issue_8 tests/test_issue_8.cpp)
 target_link_libraries(test_issue_8 PRIVATE $<TARGET_OBJECTS:core_objects>)
 add_test(NAME test_issue_8 COMMAND test_issue_8)
 
+
+add_executable(test_issue_8_simple tests/test_issue_8_simple.cpp)
+target_link_libraries(test_issue_8_simple PRIVATE $<TARGET_OBJECTS:core_objects>)
+add_test(NAME test_issue_8_simple COMMAND test_issue_8_simple)
+

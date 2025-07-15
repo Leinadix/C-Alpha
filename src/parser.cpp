@@ -420,6 +420,9 @@ std::unique_ptr<Expression> Parser::parsePrimary() {
         int column = currentToken().column;
         advance();
         expr = parseSyscallExpression(line, column);
+    } else if (check(TokenType::LEFT_BRACE)) {
+        // Layout initialization: { value1, value2, ... }
+        expr = parseLayoutInitialization();
     } else if (check(TokenType::IDENTIFIER)) {
         Token &token = tokens[position];
         expr =
@@ -1012,6 +1015,32 @@ std::unique_ptr<Expression> Parser::parseSyscallExpression(int line,
 
     return std::make_unique<SyscallExpression>(std::move(arguments), line,
                                                column);
+}
+
+std::unique_ptr<Expression> Parser::parseLayoutInitialization() {
+    int line = currentToken().line;
+    int column = currentToken().column;
+    
+    consume(TokenType::LEFT_BRACE, "Expected '{' for layout initialization");
+    
+    std::vector<std::unique_ptr<Expression>> values;
+    
+    // Empty initialization list
+    if (check(TokenType::RIGHT_BRACE)) {
+        consume(TokenType::RIGHT_BRACE, "Expected '}'");
+        return std::make_unique<LayoutInitialization>(std::move(values), line, column);
+    }
+    
+    // Parse initialization values
+    values.push_back(parseExpression());
+    
+    while (match(TokenType::COMMA)) {
+        values.push_back(parseExpression());
+    }
+    
+    consume(TokenType::RIGHT_BRACE, "Expected '}' after layout initialization");
+    
+    return std::make_unique<LayoutInitialization>(std::move(values), line, column);
 }
 
 std::unique_ptr<Statement> Parser::parseImportStatement() {
